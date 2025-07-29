@@ -5,6 +5,7 @@ import Signup from "./pages/Signup";
 import NotFound from "./pages/NotFound";
 import AccountRecovery from "./pages/AccountRecovery";
 import ProfileEdit from "./pages/ProfileEdit";
+import Review from "./pages/Review";
 
 export default function App() {
   return (
@@ -13,6 +14,7 @@ export default function App() {
       <Route path="/signup" element={<Signup />} />
       <Route path="/account-recovery" element={<AccountRecovery />} />
       <Route path="profile-edit" element={<ProfileEdit />} />
+      <Route path="/review" element={<Review />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );
