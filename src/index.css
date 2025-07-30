@@ -1,4 +1,10 @@
-:root {
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+@import 'react-day-picker/dist/style.css';
+
+
+/* :root {
   font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
@@ -11,18 +17,18 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-}
+} */
 
-a {
+/* a {
   font-weight: 500;
   color: #646cff;
   text-decoration: inherit;
 }
 a:hover {
   color: #535bf2;
-}
+} */
 
-body {
+/* body {
   margin: 0;
   display: flex;
   place-items: center;
@@ -33,7 +39,18 @@ body {
 h1 {
   font-size: 3.2em;
   line-height: 1.1;
-}
+} */
+
+/* input:-webkit-autofill {
+  box-shadow: 0 0 0px 1000px #fcfdff inset !important; 
+  -webkit-box-shadow: 0 0 0px 1000px #e5e7eb inset !important;
+  -webkit-text-fill-color: black !important;
+} */
+
+
+
+/* 
+
 
 button {
   border-radius: 8px;
@@ -65,4 +82,20 @@ button:focus-visible {
   button {
     background-color: #f9f9f9;
   }
+} */
+
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+    monospace;
+}
+
