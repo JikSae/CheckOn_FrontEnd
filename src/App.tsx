@@ -14,6 +14,8 @@ import ShareCheckList from "./pages/shareCheckList/ShareCheckList";
 import Record from "./pages/record/Record";
 import Main from "./pages/main/Main";
 
+
+
 export default function App() {
   return (
     <div className="App">
@@ -30,6 +32,7 @@ export default function App() {
         <Route path="/account-recovery" element={<AccountRecovery />} />
         <Route path="profile-edit" element={<ProfileEdit />} />
         <Route path="/review" element={<Review />} />
+        <Route path="/record" element={<Record />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </div>

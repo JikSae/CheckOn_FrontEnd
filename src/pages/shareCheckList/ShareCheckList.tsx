@@ -1,67 +1,155 @@
-import React from 'react'
+import React, { useState } from "react";
 
-const DUMMY_ITEMS = Array.from({ length: 23 }, (_, i) => ({
+const categories = [
+  "Tokyo", "Kyoto", "Osaka", "Nara", "Nagoya", "Sapporo", "Hakodate", "Otaru",
+  "Hokkaido", "Okinawa", "Naha", "Fukuoka", "Yokohama", "Hakone", "Nikko", "Kanazawa",
+  "Takayama", "Hiroshima", "Miyajima", "Mount Fuji", "Miyakojima"
+];
+
+const dummyPosts = Array.from({ length: 23 }, (_, i) => ({
   id: i + 1,
-  category: '교통',
-  tag: '중요',
-  text: `준비물 ${i + 1}`,
-  date: '2025-07-28',
+  category: ["Tokyo", "Kyoto", "Osaka", "Nara"][i % 4],
+  title: `체크리스트 제목 ${i + 1}`,
+  author: `user${i + 1}`,
+  createdAt: `2025.07.${String(22 + (i % 7)).padStart(2, "0")}`,
+  likes: 100 - i * 2,
 }));
 
-const ShareCheckList = () => {
-   // 페이징용 더미(1~5 페이지)
-  const pages = [1, 2, 3, 4, 5];
+export default function ChecklistShare() {
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [sortType, setSortType] = useState<'likes' | 'latest'>('likes');
+  const postsPerPage = 20;
+
+  const filteredPosts = selectedCategory
+    ? dummyPosts.filter((post) => post.category === selectedCategory)
+    : dummyPosts;
+
+  const sortedPosts = [...filteredPosts].sort((a, b) => {
+    if (sortType === 'likes') return b.likes - a.likes;
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+  });
+
+  const totalPages = Math.ceil(sortedPosts.length / postsPerPage);
+  const currentPosts = sortedPosts.slice(
+    (currentPage - 1) * postsPerPage,
+    currentPage * postsPerPage
+  );
 
   return (
-    <div className="min-h-screen flex bg-gray-900 text-white">
+    <div className="w-screen h-screen flex flex-col bg-white">
+      {/* <Header /> */}
 
-      {/* 메인 */}
-      <div className="flex-1 flex flex-col">
-        {/* 헤더 */}
-        <header className="bg-black p-4">
-          <div className="flex justify-between items-center">
-            <h1 className="text-xl font-semibold">준비물 목록 공유</h1>
-            <div className="text-sm">test123 님 반갑습니다.</div>
-          </div>
-        </header>
+      <div className="flex flex-1">
+        {/* 카테고리 */}
+        <aside className="w-52 h-[1000px] bg-gray-100 p-6 border-r border-gray-300 rounded-tr-3xl rounded-br-3xl mt-[200px] m-4 shadow-md">
+          <h2 className="text-lg font-bold mb-6 text-center">여행지</h2>
+          <ul className="space-y-2 text-sm">
+            {categories.map((category) => (
+              <li
+                key={category}
+                onClick={() => {
+                  setSelectedCategory(category);
+                  setCurrentPage(1);
+                }}
+                className={`cursor-pointer py-2 text-center rounded hover:bg-blue-100 ${
+                  selectedCategory === category ? "bg-blue-200 font-bold" : ""
+                }`}
+              >
+                {category}
+              </li>
+            ))}
+          </ul>
+        </aside>
 
         {/* 본문 */}
-        <main className="flex-1 overflow-auto p-6">
-          <div className="bg-white text-black rounded-lg shadow p-6">
-            {/* 테이블 */}
-            <table className="min-w-full table-auto border-collapse">
+        <main className="flex flex-1 justify-center px-4 pt-4 pb-10 mt-[100px]">
+          <div className="w-full max-w-[1200px]">
+            <h1 className="text-4xl font-bold text-center ml-[-190px] mt-[-30px] mb-12">체크리스트 공유</h1>
+            <div className="flex justify-end items-center gap-4 mb-4">
+              <label className="text-base font-medium">정렬:</label>
+              <select
+                value={sortType}
+                onChange={(e) => setSortType(e.target.value as 'likes' | 'latest')}
+                className="border border-gray-400 rounded px-3 py-1 text-sm"
+              >
+                <option value="likes">추천순</option>
+                <option value="latest">최신순</option>
+              </select>
+            </div>
+
+            <table className="w-full text-sm border-t border-b border-gray-400">
               <thead>
-                <tr className="bg-gray-100">
-                  <th className="border px-4 py-2">#</th>
-                  <th className="border px-4 py-2">카테고리</th>
-                  <th className="border px-4 py-2">태그</th>
-                  <th className="border px-4 py-2">준비물</th>
-                  <th className="border px-4 py-2">날짜</th>
+                <tr className="border-b border-gray-300 text-center">
+                  <th className="w-16 py-3">No</th>
+                  <th className="w-40">여행지</th>
+                  <th className="">제목</th>
+                  <th className="w-40">글쓴이</th>
+                  <th className="w-40">작성시간</th>
+                  <th className="w-24 text-right pr-4">추천수</th>
                 </tr>
               </thead>
               <tbody>
-                {DUMMY_ITEMS.map(({ id, category, tag, text, date }) => (
-                  <tr key={id} className="even:bg-gray-50">
-                    <td className="border px-4 py-2 text-center">{id}</td>
-                    <td className="border px-4 py-2">{category}</td>
-                    <td className="border px-4 py-2">{tag}</td>
-                    <td className="border px-4 py-2">{text}</td>
-                    <td className="border px-4 py-2 text-center">{date}</td>
+                {currentPosts.map((post, idx) => (
+                  <tr
+                    key={post.id}
+                    className="border-t border-gray-200 hover:bg-gray-50 text-center"
+                  >
+                    <td className="py-3">{(currentPage - 1) * postsPerPage + idx + 1}</td>
+                    <td>{post.category}</td>
+                    <td>
+                      <a
+                        href={`/review/${post.id}`}
+                        className="text-blue-600 hover:underline block text-center"
+                      >
+                        {post.title}
+                      </a>
+                    </td>
+                    <td>{post.author}</td>
+                    <td>{post.createdAt}</td>
+                    <td className="text-right pr-4">{post.likes}</td>
                   </tr>
                 ))}
+                {currentPosts.length < postsPerPage &&
+                  Array.from({ length: postsPerPage - currentPosts.length }).map((_, i) => (
+                    <tr key={`empty-${i}`} className="h-12">
+                      <td colSpan={6}>&nbsp;</td>
+                    </tr>
+                  ))}
               </tbody>
             </table>
 
-            {/* 페이징 */}
-            <div className="mt-6 flex justify-center space-x-2">
-              {pages.map((p) => (
+            <div className="flex justify-center mt-10 gap-2 text-sm">
+              <button onClick={() => setCurrentPage(1)} disabled={currentPage === 1}>
+                {'<<'}
+              </button>
+              <button
+                onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
+                disabled={currentPage === 1}
+              >
+                {'<'}
+              </button>
+              {Array.from({ length: totalPages }).map((_, i) => (
                 <button
-                  key={p}
-                  className="px-3 py-1 bg-gray-200 text-black rounded hover:bg-gray-300"
+                  key={i}
+                  onClick={() => setCurrentPage(i + 1)}
+                  className={`px-3 py-1 rounded ${currentPage === i + 1 ? 'font-bold underline' : ''}`}
                 >
-                  {p}
+                  {i + 1}
                 </button>
               ))}
+              <button
+                onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
+                disabled={currentPage === totalPages}
+              >
+                {'>'}
+              </button>
+              <button
+                onClick={() => setCurrentPage(totalPages)}
+                disabled={currentPage === totalPages}
+              >
+                {'>>'}
+              </button>
             </div>
           </div>
         </main>
@@ -69,5 +157,3 @@ const ShareCheckList = () => {
     </div>
   );
 }
-
-export default ShareCheckList

@@ -48,7 +48,7 @@ export default function Header() {
                   <Link to="/shareCheckList" className="block">체크리스트 공유</Link>
                 </li>
                 <li className="px-4 py-2 hover:bg-gray-100">
-                  <Link to="/share-review" className="block">준비물 후기 공유</Link>
+                  <Link to="/review" className="block">준비물 후기 공유</Link>
                 </li>
               </ul>
             )}

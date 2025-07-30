@@ -14,7 +14,7 @@ const dummyPosts = Array.from({ length: 23 }, (_, i) => ({
   likes: 100 - i * 2,
 }));
 
-export default function ReviewBoardPage() {
+export default function Review() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [sortType, setSortType] = useState<'likes' | 'latest'>('likes');
@@ -38,11 +38,14 @@ export default function ReviewBoardPage() {
   return (
     <div className="w-screen h-screen flex flex-col bg-white">
       {/* <Header /> */}
-      <div className="flex h-full">
-        {/* 왼쪽 카테고리 선택 카드 */}
-        <aside className="w-52 bg-gray-100 p-6 border-r border-gray-300">
-          <h2 className="text-xl font-bold mb-6 text-center">카테고리</h2>
-          <ul className="space-y-3 text-base">
+
+      <div className="flex h-full"></div>
+
+      <div className="flex flex-1">
+        {/* 카테고리 */}
+        <aside className="w-52 h-[650px] bg-gray-100 p-6 border-r border-gray-300 rounded-tr-3xl rounded-br-3xl mt-[160px] m-4 shadow-md">
+          <h2 className="text-lg font-bold mb-6 text-center">카테고리</h2>
+          <ul className="space-y-3 text-sm">
             {categories.map((category) => (
               <li
                 key={category}
@@ -60,95 +63,96 @@ export default function ReviewBoardPage() {
           </ul>
         </aside>
 
-        {/* 게시판 본문 */}
-        <main className="flex-1 px-16 py-10 overflow-auto">
-          <h1 className="text-5xl font-bold text-center mb-10">준비물 후기 공유</h1>
+        {/* 본문 */}
+        <main className="flex flex-1 justify-center px-4 py-10">
+          <div className="w-full max-w-[1200px]">
+            <h1 className="text-4xl font-bold text-center ml-[-190px] mb-12">준비물 후기 공유</h1>
 
-          <div className="flex justify-end items-center gap-4 mb-6">
-            <label className="text-lg font-medium">정렬:</label>
-            <select
-              value={sortType}
-              onChange={(e) => setSortType(e.target.value as 'likes' | 'latest')}
-              className="border border-gray-400 rounded px-3 py-1 text-base"
-            >
-              <option value="likes">추천순</option>
-              <option value="latest">최신순</option>
-            </select>
-          </div>
+            <div className="flex justify-end items-center gap-4 mb-6">
+              <label className="text-base font-medium">정렬:</label>
+              <select
+                value={sortType}
+                onChange={(e) => setSortType(e.target.value as 'likes' | 'latest')}
+                className="border border-gray-400 rounded px-3 py-1 text-sm"
+              >
+                <option value="likes">추천순</option>
+                <option value="latest">최신순</option>
+              </select>
+            </div>
 
-          <table className="w-full text-lg border-t border-b border-gray-400">
-            <thead>
-              <tr className="border-b border-gray-300 text-center">
-                <th className="w-16 py-3">No</th>
-                <th className="w-40">카테고리</th>
-                <th className="">제목</th>
-                <th className="w-40">글쓴이</th>
-                <th className="w-40">작성시간</th>
-                <th className="w-24">추천수</th>
-              </tr>
-            </thead>
-            <tbody>
-              {currentPosts.map((post, idx) => (
-                <tr
-                  key={post.id}
-                  className="border-t border-gray-200 hover:bg-gray-50 text-center"
-                >
-                  <td className="py-3">{(currentPage - 1) * postsPerPage + idx + 1}</td>
-                  <td>{post.category}</td>
-                  <td>
-                    <a
-                      href={`/review/${post.id}`}
-                      className="text-blue-600 hover:underline block text-center"
-                    >
-                      {post.title}
-                    </a>
-                  </td>
-                  <td>{post.author}</td>
-                  <td>{post.createdAt}</td>
-                  <td className="text-right pr-4">{post.likes}</td>
+            <table className="w-full text-sm border-t border-b border-gray-400">
+              <thead>
+                <tr className="border-b border-gray-300 text-center">
+                  <th className="w-16 py-3">No</th>
+                  <th className="w-40">카테고리</th>
+                  <th className="">제목</th>
+                  <th className="w-40">글쓴이</th>
+                  <th className="w-40">작성시간</th>
+                  <th className="w-24 text-right pr-4">추천수</th>
                 </tr>
-              ))}
-              {currentPosts.length < postsPerPage &&
-                Array.from({ length: postsPerPage - currentPosts.length }).map((_, i) => (
-                  <tr key={`empty-${i}`} className="h-12">
-                    <td colSpan={6}>&nbsp;</td>
+              </thead>
+              <tbody>
+                {currentPosts.map((post, idx) => (
+                  <tr
+                    key={post.id}
+                    className="border-t border-gray-200 hover:bg-gray-50 text-center"
+                  >
+                    <td className="py-3">{(currentPage - 1) * postsPerPage + idx + 1}</td>
+                    <td>{post.category}</td>
+                    <td>
+                      <a
+                        href={`/review/${post.id}`}
+                        className="text-blue-600 hover:underline block text-center"
+                      >
+                        {post.title}
+                      </a>
+                    </td>
+                    <td>{post.author}</td>
+                    <td>{post.createdAt}</td>
+                    <td className="text-right pr-4">{post.likes}</td>
                   </tr>
                 ))}
-            </tbody>
-          </table>
+                {currentPosts.length < postsPerPage &&
+                  Array.from({ length: postsPerPage - currentPosts.length }).map((_, i) => (
+                    <tr key={`empty-${i}`} className="h-12">
+                      <td colSpan={6}>&nbsp;</td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
 
-          {/* 페이지네이션 */}
-          <div className="flex justify-center mt-10 gap-4 text-lg">
-            <button onClick={() => setCurrentPage(1)} disabled={currentPage === 1}>
-              {'<<'}
-            </button>
-            <button
-              onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
-              disabled={currentPage === 1}
-            >
-              {'<'}
-            </button>
-            {Array.from({ length: totalPages }).map((_, i) => (
-              <button
-                key={i}
-                onClick={() => setCurrentPage(i + 1)}
-                className={`px-3 py-1 rounded ${currentPage === i + 1 ? 'font-bold underline' : ''}`}
-              >
-                {i + 1}
+            <div className="flex justify-center mt-10 gap-2 text-sm">
+              <button onClick={() => setCurrentPage(1)} disabled={currentPage === 1}>
+                {'<<'}
               </button>
-            ))}
-            <button
-              onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
-              disabled={currentPage === totalPages}
-            >
-              {'>'}
-            </button>
-            <button
-              onClick={() => setCurrentPage(totalPages)}
-              disabled={currentPage === totalPages}
-            >
-              {'>>'}
-            </button>
+              <button
+                onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
+                disabled={currentPage === 1}
+              >
+                {'<'}
+              </button>
+              {Array.from({ length: totalPages }).map((_, i) => (
+                <button
+                  key={i}
+                  onClick={() => setCurrentPage(i + 1)}
+                  className={`px-3 py-1 rounded ${currentPage === i + 1 ? 'font-bold underline' : ''}`}
+                >
+                  {i + 1}
+                </button>
+              ))}
+              <button
+                onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
+                disabled={currentPage === totalPages}
+              >
+                {'>'}
+              </button>
+              <button
+                onClick={() => setCurrentPage(totalPages)}
+                disabled={currentPage === totalPages}
+              >
+                {'>>'}
+              </button>
+            </div>
           </div>
         </main>
       </div>
