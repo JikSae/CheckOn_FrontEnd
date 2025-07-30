@@ -13,6 +13,7 @@ import Information from "./pages/information/Information";
 import ShareCheckList from "./pages/shareCheckList/ShareCheckList";
 import Record from "./pages/record/Record";
 import Main from "./pages/main/Main";
+import ReviewDetail from "./pages/ReviewDetail";
 
 
 
@@ -33,6 +34,7 @@ export default function App() {
         <Route path="profile-edit" element={<ProfileEdit />} />
         <Route path="/review" element={<Review />} />
         <Route path="/record" element={<Record />} />
+        <Route path="/reviewdetail" element={<ReviewDetail />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </div>
