@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import CheckListModal from '../../components/checkList/CheckListModal';
 import { MyCheckList } from '../../components/reviews/MyCheckList';
 import { MyReviews } from '../../components/reviews/MyReviews';
+import { Link } from 'react-router-dom';
 
 
 interface Card {
@@ -57,12 +58,10 @@ const MyPage: React.FC = () => {
             반갑습니다.
           </p>
           <div className="flex flex-col gap-[5px]">
-            <a href="/" className="text-[12px] font-light black">
+            <a href="/profile-edit" className="text-[12px] font-light black">
               회원정보 변경
             </a>
-            <a href="/" className="text-[12px] font-light black">
-              프로필 변경
-            </a>
+
           </div>
         </div>
 
@@ -106,13 +105,17 @@ const MyPage: React.FC = () => {
           {/* 하단 리뷰/후기 섹션 */}
           <div className="mx-auto flex gap-[30px]">
             <div className="w-[483px] h-[330px]">
-              <h4 className="text-[20px] font-bold mb-[10px] text-left">체크 리스트 공유</h4>
+              <Link to={"/shareCheckList"}>
+                 <h4 className="text-[20px] font-bold mb-[10px] text-left">체크 리스트 공유</h4>
+              </Link>
               <div className="border border-black w-full h-[266px]" >
                   <MyCheckList />
               </div>               
             </div>
             <div className="w-[483px] h-[330px]">
-              <h4 className="text-[20px] font-bold mb-[10px] text-left">후기 관리</h4>
+              <Link to={"/review"}>
+                <h4 className="text-[20px] font-bold mb-[10px] text-left">후기 관리</h4> 
+              </Link>
               <div className="border border-black w-full h-[266px]" >
                 <MyReviews />
               </div>
@@ -129,7 +132,7 @@ const MyPage: React.FC = () => {
           onClick={closeModal}
         >
           <div
-            className="bg-white rounded-xl shadow-xl w-full max-w-[983px] mx-4 p-6 relative"
+            className="bg-white rounded-xl shadow-xl w-full max-w-[983px]  max-h-[900px] overflow-y-auto hide-scrollbar mx-4 p-6 relative"
             onClick={e => e.stopPropagation()}
           >
             {/* 닫기 버튼 */}
@@ -152,12 +155,7 @@ const MyPage: React.FC = () => {
               ))}
             </div> */}
               <CheckListModal />
-            <button
-              onClick={closeModal}
-              className="mt-6 px-4 py-2 bg-[#FE0000] text-white rounded hover:bg-red-600 transition"
-            >
-              닫기
-            </button>
+         
           </div>
         </div>
       )}

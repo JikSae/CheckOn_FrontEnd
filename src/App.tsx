@@ -30,7 +30,7 @@ export default function App() {
         <Route path="/shareCheckList" element={<ShareCheckList />}/>
         <Route path="/signup" element={<Signup />} />
         <Route path="/account-recovery" element={<AccountRecovery />} />
-        <Route path="profile-edit" element={<ProfileEdit />} />
+        <Route path="/profile-edit" element={<ProfileEdit />} />
         <Route path="/review" element={<Review />} />
         <Route path="/record" element={<Record />} />
         <Route path="*" element={<NotFound />} />

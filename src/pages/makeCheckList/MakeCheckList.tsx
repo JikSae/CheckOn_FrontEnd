@@ -227,6 +227,8 @@ export default function MakeCheckList() {
   }
 
   return (
+    <div className='max-w-[1320px] mx-auto'>
+      <h3 className ="text-3xl font-bold text-center ml-[-130px] my-10" >체크리스트 만들기 </h3>
     <div className="w-[1000px] mx-auto p-6 bg-white rounded-xl shadow-lg">
       {/* 챗 버블 */}
       <div className="space-y-4 mb-6">
@@ -437,6 +439,7 @@ export default function MakeCheckList() {
           </button>
         </div>
       )}
+    </div>
     </div>
   );
 }

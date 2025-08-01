@@ -23,7 +23,7 @@ const SlideBar = () => {
   const next = () => setCurrent(current === lastIndex ? 0 : current + 1);
 
   return (
-    <div className="relative w-full overflow-hidden mb-[100px]">
+    <div className="relative w-full overflow-hidden my-[100px]">
       {/* 슬라이드 컨테이너 */}
       <div
         className="flex transition-transform duration-500 ease-in-out"
@@ -34,7 +34,7 @@ const SlideBar = () => {
             <img
               src={src}
               alt={`Banner ${idx + 1}`}
-              className="w-full h-[680px] object-cover"
+              className="w-[1320px] h-[550px] object-cover object-top "
             />
           </div>
         ))}
