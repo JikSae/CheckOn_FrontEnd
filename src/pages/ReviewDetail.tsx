@@ -48,10 +48,6 @@ export default function ReviewDetail() {
   return (
     <div className="w-screen h-screen flex flex-col bg-[#F3F4F6] text-[#1F2937]">
       {/* 헤더 자리 */}
-      <header className="w-full h-16 bg-[#FEFEFE] border-b border-gray-300 px-6 flex items-center justify-between">
-        <div className="text-xl font-bold text-red-500">Check.On</div>
-        <div className="text-sm text-[#1F2937]">사용자님 반갑습니다.</div>
-      </header>
 
       {/* 본문 */}
       <main className="flex-1 px-4 py-8 flex justify-center items-start overflow-auto">
