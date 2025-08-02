@@ -43,8 +43,8 @@ const WeatherCard: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  const latitude = 37.5665;
-  const longitude = 126.9780;
+  const latitude = 35.6895;
+  const longitude = 139.6917;
 
   useEffect(() => {
     async function fetchWeather() {
@@ -60,7 +60,7 @@ const WeatherCard: React.FC = () => {
             params: {
               latitude,
               longitude,
-              timezone: 'Asia/Seoul',
+              timezone: 'Asia/Tokyo',
               current_weather: true,
               hourly: 'relativehumidity_2m,precipitation_probability',
               daily:

@@ -14,6 +14,8 @@ import ShareCheckList from "./pages/shareCheckList/ShareCheckList";
 import Record from "./pages/record/Record";
 import Main from "./pages/main/Main";
 import ReviewDetail from "./pages/ReviewDetail";
+import CheckListWrapper from "./components/CheckListWrapper";
+
 
 
 
@@ -34,7 +36,8 @@ export default function App() {
         <Route path="/profile-edit" element={<ProfileEdit />} />
         <Route path="/review" element={<Review />} />
         <Route path="/record" element={<Record />} />
-        <Route path="/reviewdetail" element={<ReviewDetail />} />
+        <Route path="/reviewDetail" element={<ReviewDetail />} />
+        <Route path="/checkListReview" element={<CheckListWrapper />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </div>

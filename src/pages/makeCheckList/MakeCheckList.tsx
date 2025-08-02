@@ -7,6 +7,9 @@ import type { Item } from './ModifyCheckList';
 
 type Message = { sender: 'bot' | 'user'; text: string };
 
+const CITIES = ['Tokyo', 'Osaka', 'Kyoto', 'Nara', 'Nagoya', 'Sapporo', 'Hakodate', 'Otaru'] as const;
+type City = typeof CITIES[number];
+
 // 옵션 상수
 const PURPOSE_OPTIONS = ['힐링', '액티비티', '비즈니스', '문화탐방', '캠핑'];
 const TRANSPORT_OPTIONS = ['렌트', '대중교통'];
@@ -249,21 +252,37 @@ export default function MakeCheckList() {
       </div>
 
       {/* 인터랙션 */}
-      {step === 'city' && (
-        <div className="flex gap-2">
-          <input
-            type="text"
-            value={city}
-            onChange={(e) => setCity(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && submitCity()}
-            className="flex-1 border rounded px-3 py-2 focus:outline-none"
-            placeholder="예) 서울, 도쿄"
-          />
-          <button onClick={submitCity} className="bg-red-500 text-white px-4 py-2 rounded">
-            전송
-          </button>
-        </div>
-      )}
+     {step === 'city' && (
+  <div className="flex flex-col gap-4">
+    <div className="flex flex-wrap gap-2">
+      {CITIES.map((c) => (
+        <button
+          key={c}
+          onClick={() => {
+            setCity(c);
+            addMsg({ sender: 'user', text: c });
+            addMsg({ sender: 'bot', text: '출발일과 도착일을 선택해주세요.' });
+            setStep('date');
+          }}
+          aria-pressed={city === c}
+          className={`
+            px-4 py-2 rounded-full text-sm font-medium transition
+            ${city === c
+              ? 'bg-red-500 text-white shadow'
+              : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}
+          `}
+        >
+          {c}
+        </button>
+      ))}
+    </div>
+    {city && (
+      <div className="text-sm text-gray-600">
+        선택된 도시: <span className="font-semibold">{city}</span>
+      </div>
+    )}
+  </div>
+)}
 
       {step === 'date' && (
         <div className="grid grid-cols-2 gap-4">

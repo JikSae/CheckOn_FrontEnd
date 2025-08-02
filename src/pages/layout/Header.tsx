@@ -26,11 +26,11 @@ export default function Header() {
 
         {/* 네비 메뉴 */}
         <nav className="ml-8 flex items-center space-x-4">
-          <Link to="/checkList" className="hover:text-gray-300">Check</Link>
+          <Link to="/checkList" className="hover:text-gray-300">체크리스트</Link>
           <span className="text-gray-600">|</span>
-          <Link to="/information" className="hover:text-gray-300">Information</Link>
+          <Link to="/information" className="hover:text-gray-300">여행정보</Link>
           <span className="text-gray-600">|</span>
-          <Link to="/record" className="hover:text-gray-300">Record</Link>
+          <Link to="/record" className="hover:text-gray-300">찜목록</Link>
           <span className="text-gray-600">|</span>
 
           {/* Review 드롭다운 (클릭 토글) */}
@@ -39,7 +39,7 @@ export default function Header() {
               onClick={() => setIsOpen(open => !open)}
               className="px-3 py-1 hover:text-gray-300"
             >
-              Review
+              리뷰 공유
             </button>
 
             {isOpen && (
@@ -55,12 +55,23 @@ export default function Header() {
           </div>
         </nav>
 
+
         {/* 우측 마이페이지 */}
         <div className="ml-auto">
           <Link to="/mypage" className="underline hover:text-gray-300">
             test123님 반갑습니다.
           </Link>
         </div>
+
+        {/* <div className="ml-auto">
+          <Link to="/login" className="underline hover:text-gray-300">
+            로그인
+          </Link>
+          <span> | </span>
+          <Link to="/signup" className="underline hover:text-gray-300">
+            회원가입
+          </Link>
+        </div> */}
       </div>
     </header>
   );

@@ -58,7 +58,7 @@ const JapanNoticeCard: React.FC = () => {
   return (
     <div className="max-w-full mx-auto px-6 py-4">
       <h1 className="text-xl font-bold mb-3">일본 유의사항</h1>
-      <div className="border-2 border-red-500 rounded-lg p-6 h-64 overflow-y-auto bg-white/90 shadow-inner">
+      <div className="border-2  rounded-lg p-6 h-64 overflow-y-auto bg-white/90 shadow-inner">
         {noticeItems.map((section) => (
           <div key={section.title} className="mb-4">
             <div className="font-semibold text-gray-800 mb-1">{section.title}</div>
