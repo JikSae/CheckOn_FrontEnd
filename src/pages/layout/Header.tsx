@@ -28,9 +28,9 @@ export default function Header() {
         <nav className="ml-8 flex items-center space-x-4">
           <Link to="/checkList" className="hover:text-gray-300">체크리스트</Link>
           <span className="text-gray-600">|</span>
-          <Link to="/information" className="hover:text-gray-300">여행정보</Link>
+          <Link to="/information" className="hover:text-gray-300">정보</Link>
           <span className="text-gray-600">|</span>
-          <Link to="/record" className="hover:text-gray-300">찜목록</Link>
+          <Link to="/record" className="hover:text-gray-300">찜 목록</Link>
           <span className="text-gray-600">|</span>
 
           {/* Review 드롭다운 (클릭 토글) */}
@@ -39,7 +39,7 @@ export default function Header() {
               onClick={() => setIsOpen(open => !open)}
               className="px-3 py-1 hover:text-gray-300"
             >
-              리뷰 공유
+              리뷰
             </button>
 
             {isOpen && (

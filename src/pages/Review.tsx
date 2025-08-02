@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { Link } from "react-router-dom";
 
 const categories = [
   "의류", "세면 용품", "화장품", "아기 용품", "소모품",
@@ -36,7 +37,7 @@ export default function Review() {
   );
 
   return (
-    <div className="w-screen h-screen flex flex-col bg-white">
+    <div className="w-screen h-screen flex flex-col bg-[#f4f9ff]">
       {/* <Header /> */}
       <main className="flex-1 px-4 py-10">
         <div className="w-full max-w-[1320px] mx-auto">
@@ -95,9 +96,9 @@ export default function Review() {
                   <td className="py-3">{(currentPage - 1) * postsPerPage + idx + 1}</td>
                   <td>{post.category}</td>
                   <td>
-                    <a href={`/review/${post.id}`} className="text-blue-600 hover:underline block text-center">
+                    <Link to={`/review/${post.id}`} className="text-blue-600 hover:underline block text-center">
                       {post.title}
-                    </a>
+                    </Link>
                   </td>
                   <td>{post.author}</td>
                   <td>{post.createdAt}</td>

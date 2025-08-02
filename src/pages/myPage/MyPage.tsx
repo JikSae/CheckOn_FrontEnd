@@ -2,8 +2,9 @@ import React, { useState } from 'react';
 import CheckListModal from '../../components/checkList/CheckListModal';
 import { MyCheckList } from '../../components/reviews/MyCheckList';
 import { MyReviews } from '../../components/reviews/MyReviews';
-import { Link } from 'react-router-dom';
 import { TravelStatusBadge } from '../../components/TravelStatusBadge';
+import { Link, useNavigate } from 'react-router-dom';
+
 
 interface Card {
   id: number;
@@ -43,15 +44,24 @@ const MyPage: React.FC = () => {
   const [modalOpen, setModalOpen] = useState(false);
   const [current, setCurrent] = useState<Card | null>(null);
 
-  const openModal = (card: Card) => {
-    setCurrent(card);
-    setModalOpen(true);
+    const navigate = useNavigate();
+
+    const openModal = (card: Card) => {
+      setCurrent(card);
+      setModalOpen(true);
+    };
+
+    const closeModal = () => {
+      setModalOpen(false);
+      setCurrent(null);
+    };
+
+    const handleLogout = () => {
+    localStorage.clear(); // 또는 removeItem("token")만 해도 됨
+    alert("로그아웃 되었습니다.");
+    navigate("/");
   };
 
-  const closeModal = () => {
-    setModalOpen(false);
-    setCurrent(null);
-  };
 
   return (
     <div className="max-w-[1320px] mx-auto">
@@ -77,6 +87,13 @@ const MyPage: React.FC = () => {
             <a href="/profile-edit" className="text-[12px] font-light black">
               회원정보 변경
             </a>
+
+            <button
+              onClick={handleLogout}
+              className="text-[12px] font-light text-black text-left hover:underline">
+              로그아웃
+            </button>
+
           </div>
         </div>
 
