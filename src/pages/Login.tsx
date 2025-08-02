@@ -1,10 +1,53 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { useState } from "react";
 
 export default function Login() {
+  const [form, setForm] = useState({
+    email: "",
+    password: "",
+  });
+
+  const navigate = useNavigate();
+  const [error, setError] = useState<string>("");
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { id, value } = e.target;
+    setForm((prev) => ({ ...prev, [id]: value }));
+    setError(""); // 입력할 때 마다 에러 초기화
+  };
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault(); // 기본 제출 막기
+
+    
+
+    try {
+      const response = await fetch("http://localhost:3000/auth/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(form),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        localStorage.setItem("token", data.token);
+        localStorage.setItem("nickname", data.nickname);
+        alert("로그인 성공!");
+        navigate("/"); // 홈으로 이동
+      } else {
+        alert(data.message || "로그인 실패");
+      }
+    } catch (err) {
+      console.error("로그인 에러", err);
+      alert("서버 연결에 실패했습니다.");
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-[#FEFEFE] text-gray-800">
-      
-      {/* TODO: 헤더 컴포넌트 자리 */}
       <div className="h-20 w-full">{/* <Header /> 자리 */}</div>
 
       {/* 로그인 영역 */}

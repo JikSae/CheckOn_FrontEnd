@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import CheckListModal from '../../components/checkList/CheckListModal';
 import { MyCheckList } from '../../components/reviews/MyCheckList';
 import { MyReviews } from '../../components/reviews/MyReviews';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 
 interface Card {
@@ -25,6 +25,7 @@ const MyPage: React.FC = () => {
 
     const [modalOpen, setModalOpen] = useState(false);
     const [current, setCurrent] = useState<Card | null>(null);
+    const navigate = useNavigate();
 
     const openModal = (card: Card) => {
       setCurrent(card);
@@ -35,6 +36,12 @@ const MyPage: React.FC = () => {
       setModalOpen(false);
       setCurrent(null);
     };
+
+    const handleLogout = () => {
+    localStorage.clear(); // 또는 removeItem("token")만 해도 됨
+    alert("로그아웃 되었습니다.");
+    navigate("/");
+  };
 
 
   return (
@@ -61,6 +68,12 @@ const MyPage: React.FC = () => {
             <a href="/profile-edit" className="text-[12px] font-light black">
               회원정보 변경
             </a>
+
+            <button
+              onClick={handleLogout}
+              className="text-[12px] font-light text-black text-left hover:underline">
+              로그아웃
+            </button>
 
           </div>
         </div>

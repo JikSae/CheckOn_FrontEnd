@@ -34,7 +34,7 @@ export default function App() {
         <Route path="/profile-edit" element={<ProfileEdit />} />
         <Route path="/review" element={<Review />} />
         <Route path="/record" element={<Record />} />
-        <Route path="/reviewdetail" element={<ReviewDetail />} />
+        <Route path="/reviewDetail" element={<ReviewDetail />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </div>

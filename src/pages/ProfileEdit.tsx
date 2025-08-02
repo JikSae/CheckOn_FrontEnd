@@ -1,14 +1,43 @@
-import React, { useState, useRef } from "react";
+// ProFIleEdit.tsx
+import React, { useState, useRef, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 
 export default function ProfileEdit() {
+  const navigate = useNavigate();
   const [form, setForm] = useState({
     nickname: "test123",
     password: "",
     confirmPassword: "",
     profileImage: "https://cdn-icons-png.flaticon.com/512/847/847969.png",
   });
-
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // 페이지 로드 시 백엔드에서 내 정보 조회 , 데이터 없어서 오류 뜨는 거
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      alert("로그인이 필요합니다.");
+      return navigate("/login");
+    }
+    fetch("http://localhost:3000/users/me", {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then(res => {
+        if (!res.ok) throw new Error("내 정보 조회 실패");
+        return res.json();
+      })
+      .then(data => {
+        setForm(prev => ({
+          ...prev,
+          nickname: data.nickname,
+          profileImage: data.profileImage || prev.profileImage,
+        }));
+      })
+      .catch(err => {
+        console.error(err);
+        alert("내 정보를 불러올 수 없습니다.");
+      });
+  }, [navigate]);
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -35,20 +64,52 @@ export default function ProfileEdit() {
     });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // 백엔드에 변경된 회원정보 전송
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: 백엔드에 변경된 회원정보 전송
-    console.log("회원정보 수정 요청", form);
+
+    // 비밀번호 일치 검증
+    if (form.password && form.password !== form.confirmPassword) {
+      alert("비밀번호가 일치하지 않습니다.");
+      return;
+    }
+
+    const token = localStorage.getItem("token");
+    if (!token) {
+      alert("로그인이 필요합니다.");
+      return navigate("/login");
+    }
+
+    try {
+      const res = await fetch("http://localhost:3000/users/me", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          nickname: form.nickname,
+          password: form.password || undefined,
+          profileImage: form.profileImage,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        alert("프로필이 성공적으로 수정되었습니다.");
+      } else {
+        alert(data.message || "프로필 수정에 실패했습니다.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("서버 연결에 실패했습니다.");
+    }
   };
 
   return (
     <div className="w-screen h-screen bg-[#E7E6E6] text-[#1F2937] font-sans flex flex-col">
       {/* TODO: 헤더 영역 삽입 위치 */}
-      <div className="h-20 w-full bg-black">
-        {/* Header 자리입니다. 나중에 <Header /> 컴포넌트로 교체 예정 */}
-      </div>
 
-      <div className="flex flex-col items-center justify-center flex-1 px-4 mt-[-300px]">
+      <div className="flex flex-col items-center justify-center flex-1 px-4">
         <h1 className="text-4xl font-bold mb-10">프로필 수정</h1>
         <form
           onSubmit={handleSubmit}
@@ -72,12 +133,7 @@ export default function ProfileEdit() {
                 </button>
                 <button
                   type="button"
-                  onClick={() =>
-                    setForm((prev) => ({
-                      ...prev,
-                      profileImage: "https://cdn-icons-png.flaticon.com/512/847/847969.png",
-                    }))
-                  }
+                  onClick={handleReset}
                   className="px-4 py-1 rounded bg-gray-300 text-sm"
                 >
                   기본 이미지
@@ -115,9 +171,10 @@ export default function ProfileEdit() {
                 minLength={6}
                 maxLength={13}
               />
-              {form.confirmPassword && form.password !== form.confirmPassword && (
-                <div className="text-[#F59E0B] text-sm mt-1">비밀번호는 6자 이상 13자 이하로 입력해주세요.</div>
-              )}
+              {form.confirmPassword &&
+                form.password !== form.confirmPassword && (
+                  <div className="text-[#F59E0B] text-sm mt-1">비밀번호는 6자 이상 13자 이하로 입력해주세요.</div>
+                )}
             </div>
 
             <div className="font-semibold col-span-1 text-right pr-4">비밀번호 확인</div>
