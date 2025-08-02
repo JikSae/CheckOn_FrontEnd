@@ -1,4 +1,4 @@
-// src/components/ChatChecklist.tsx
+// src/components/MakeChecklist.tsx
 import React, { useState } from 'react';
 import { DayPicker } from 'react-day-picker';
 import 'react-day-picker/dist/style.css';
@@ -172,10 +172,38 @@ export default function MakeCheckList() {
     addMsg({ sender: 'user', text: yes ? '예' : '아니요' });
     addMsg({ sender: 'bot', text: '추천 준비물을 선택해주세요.' });
     setStep('items');
-  };
+    // 백엔드에서 추천 체크리스트 받아오기
+    fetch('http://localhost:3000/recommend', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        city,
+        purpose,
+        transport,
+        activities,
+        minimalPack,
+        exchange,
+      }),
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error('추천 실패');
+        return res.json();
+      })
+      .then((data) => {
+        // 백엔드가 items 배열로 반환한다고 가정
+        console.log('추천 받은 체크리스트:', data);
+        setSelectedItems(data.items || []);
+      })
+      .catch((err) => {
+        console.error('추천 준비물 가져오기 실패:', err);
+        alert('추천 준비물을 가져오지 못했습니다.');
+      });
+    };
 
   // P: 추천 준비물 선택
-  const suggestions = minimalPack ? MINIMAL_ITEMS : DEFAULT_ITEMS;
+  const suggestions = jpType === 'P' ? selectedItems : [];
   const toggleItem = (it: string) => {
     setSelectedItems((prev) =>
       prev.includes(it) ? prev.filter((x) => x !== it) : [...prev, it]

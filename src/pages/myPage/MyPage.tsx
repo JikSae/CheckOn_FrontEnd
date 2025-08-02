@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import CheckListModal from '../../components/checkList/CheckListModal';
 import { MyCheckList } from '../../components/reviews/MyCheckList';
 import { MyReviews } from '../../components/reviews/MyReviews';
@@ -43,8 +43,15 @@ const checklistMap: Record<number, { checked: boolean }[]> = {
 const MyPage: React.FC = () => {
   const [modalOpen, setModalOpen] = useState(false);
   const [current, setCurrent] = useState<Card | null>(null);
+  const navigate = useNavigate();
 
-    const navigate = useNavigate();
+      // ─── 인증 가드: 토큰 없으면 로그인 페이지로 ───
+    useEffect(() => {
+      if (!localStorage.getItem('token')) {
+        alert('로그인이 필요합니다.');
+        navigate('/login', { replace: true });
+      }
+    }, [navigate]);
 
     const openModal = (card: Card) => {
       setCurrent(card);
@@ -57,9 +64,10 @@ const MyPage: React.FC = () => {
     };
 
     const handleLogout = () => {
-    localStorage.clear(); // 또는 removeItem("token")만 해도 됨
+    localStorage.removeItem("token");
+    localStorage.removeItem("nickname");
     alert("로그아웃 되었습니다.");
-    navigate("/");
+    navigate("/login", { replace: true });
   };
 
 
