@@ -1,42 +1,54 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+// src/components/Header.tsx
+import React, { useState, useRef, useEffect } from "react";
+import { Link } from "react-router-dom";
 
 interface User {
   username: string;
-  // 필요하면 다른 필드도 확장 가능
 }
 
-export default function Header() {
-  const [isOpen, setIsOpen] = useState(false);
+interface HeaderProps {
+  user?: User | null; // 실제 로그인 상태는 부모나 context에서 주입
+  onLogout?: () => void;
+}
+
+export default function Header({ user: initialUser = null, onLogout }: HeaderProps) {
+  const [isOpen, setIsOpen] = useState(false); // 리뷰 드롭다운 (데스크탑)
+  const [mobileOpen, setMobileOpen] = useState(false); // 모바일 전체 메뉴
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const mobileRef = useRef<HTMLDivElement>(null);
 
-  // === 여기를 실제 로그인 상태로 바꾸면 됨 ===
-  // 예시: 컨텍스트, redux, prop, 서버 검증 등에서 가져온 유저
-  // const [user, setUser] = useState<User | null>({ username: 'test123' }); // 로그인된 상태
-  const [user, setUser] = useState<User | null>(null); // 비로그인 상태
-  // ==========================================
-
-  // 바깥 클릭 시 드롭다운 닫기
+  // 외부 클릭 닫기 (데스크탑 드롭다운)
   useEffect(() => {
-    const onClickOutside = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(e.target as Node)
+      ) {
         setIsOpen(false);
       }
+      if (mobileRef.current && !mobileRef.current.contains(e.target as Node)) {
+        setMobileOpen(false);
+      }
     };
-    document.addEventListener('mousedown', onClickOutside);
-    return () => document.removeEventListener('mousedown', onClickOutside);
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // 실제 유저 상태는 prop/context 기준. 여기선 fallback으로 null.
+  const [user, setUser] = useState<User | null>(initialUser);
+
   return (
-    <header className="top-0 left-0 w-full bg-gray-800 text-white shadow ">
-      <div className="max-w-[1600px] mx-auto h-16 flex items-center px-6">
+    <header className="sticky top-0 left-0 w-full bg-gray-800 text-white shadow z-50">
+      <div className="max-w-[1600px] mx-auto flex items-center px-4 md:px-6 h-16">
         {/* 로고 */}
-        <div className="text-red-500 font-bold text-3xl">
-          <Link to="/">Check .On</Link>
+        <div className="flex-shrink-0">
+          <Link to="/" className="text-red-500 font-bold text-2xl md:text-3xl">
+            Check .On
+          </Link>
         </div>
 
-        {/* 네비 메뉴 */}
-        <nav className="ml-8 flex items-center space-x-4">
+        {/* 데스크탑 네비 */}
+        <nav className="hidden md:flex ml-8 items-center space-x-4 text-sm">
           <Link to="/checkList" className="hover:text-gray-300">
             체크리스트
           </Link>
@@ -50,24 +62,39 @@ export default function Header() {
           </Link>
           <span className="text-gray-600">|</span>
 
-          {/* Review 드롭다운 (클릭 토글) */}
+          {/* Review 드롭다운 */}
           <div ref={dropdownRef} className="relative">
             <button
-              onClick={() => setIsOpen(open => !open)}
-              className="px-3 py-1 hover:text-gray-300"
+              onClick={() => setIsOpen(o => !o)}
+              aria-expanded={isOpen}
+              aria-haspopup="menu"
+              className="px-3 py-1 flex items-center gap-1 hover:text-gray-300 focus:outline-none"
             >
               리뷰
+              <span aria-hidden="true" className="text-xs">
+                ▼
+              </span>
             </button>
-
             {isOpen && (
-              <ul className="absolute top-full left-0 mt-1 w-40 bg-white text-gray-800 rounded shadow-lg z-10">
-                <li className="px-4 py-2 hover:bg-gray-100">
-                  <Link to="/shareCheckList" className="block">
+              <ul
+                role="menu"
+                className="absolute top-full left-0 mt-2 w-44 bg-white text-gray-800 rounded shadow-md z-20"
+              >
+                <li role="none">
+                  <Link
+                    to="/shareCheckList"
+                    className="block px-4 py-2 hover:bg-gray-100"
+                    role="menuitem"
+                  >
                     체크리스트 공유
                   </Link>
                 </li>
-                <li className="px-4 py-2 hover:bg-gray-100">
-                  <Link to="/review" className="block">
+                <li role="none">
+                  <Link
+                    to="/review"
+                    className="block px-4 py-2 hover:bg-gray-100"
+                    role="menuitem"
+                  >
                     준비물 후기 공유
                   </Link>
                 </li>
@@ -76,14 +103,69 @@ export default function Header() {
           </div>
         </nav>
 
-        {/* 우측 마이페이지 / 로그인 가입 */}
-        <div className="ml-auto flex items-center gap-2 text-sm">
+        {/* mobile 햄버거 */}
+        <div className="md:hidden ml-4" ref={mobileRef}>
+          <button
+            aria-label="메뉴 열기"
+            aria-expanded={mobileOpen}
+            onClick={() => setMobileOpen(o => !o)}
+            className="p-2 focus:outline-none"
+          >
+            <div className="w-6 h-0.5 bg-white mb-1" />
+            <div className="w-6 h-0.5 bg-white mb-1" />
+            <div className="w-6 h-0.5 bg-white" />
+          </button>
+          {mobileOpen && (
+            <div className="absolute top-full left-0 right-0 bg-gray-800 text-white shadow-md mt-1 rounded-b-md">
+              <div className="flex flex-col space-y-1 px-4 py-3 text-sm">
+                <Link to="/checkList" className="hover:bg-gray-700 rounded px-2 py-1">
+                  체크리스트
+                </Link>
+                <Link to="/information" className="hover:bg-gray-700 rounded px-2 py-1">
+                  정보
+                </Link>
+                <Link to="/record" className="hover:bg-gray-700 rounded px-2 py-1">
+                  찜 목록
+                </Link>
+                <div className="border-t border-gray-700 my-1" />
+                <div className="flex flex-col">
+                  <span className="font-medium mb-1">리뷰</span>
+                  <Link
+                    to="/shareCheckList"
+                    className="hover:bg-gray-700 rounded px-2 py-1"
+                  >
+                    체크리스트 공유
+                  </Link>
+                  <Link to="/review" className="hover:bg-gray-700 rounded px-2 py-1">
+                    준비물 후기 공유
+                  </Link>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* 우측 로그인/마이페이지 */}
+        <div className="ml-auto flex items-center gap-3 text-sm">
           {user ? (
-            <Link to="/mypage" className="underline hover:text-gray-300">
-              {user.username}님 반갑습니다.
-            </Link>
-          ) : (
             <>
+              <Link
+                to="/mypage"
+                className="underline hover:text-gray-300 whitespace-nowrap"
+              >
+                {user.username}님 반갑습니다.
+              </Link>
+              {onLogout && (
+                <button
+                  onClick={onLogout}
+                  className="text-xs ml-2 hover:text-gray-300"
+                >
+                  로그아웃
+                </button>
+              )}
+            </>
+          ) : (
+            <div className="flex items-center gap-2 whitespace-nowrap">
               <Link to="/login" className="underline hover:text-gray-300">
                 로그인
               </Link>
@@ -91,7 +173,7 @@ export default function Header() {
               <Link to="/signup" className="underline hover:text-gray-300">
                 회원가입
               </Link>
-            </>
+            </div>
           )}
         </div>
       </div>

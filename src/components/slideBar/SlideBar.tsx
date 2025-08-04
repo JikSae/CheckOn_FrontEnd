@@ -1,141 +1,205 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, {
+  useState,
+  useRef,
+  useEffect,
+  useCallback,
+} from "react";
+import type { TouchEvent } from "react";
 
-// 원본 이미지 배열
 const baseImages = [
-  '/images/banner01.png',
-  '/images/banner02.png',
-  '/images/banner03.png',
-  '/images/banner04.png',
+  "/images/banner01.png",
+  "/images/banner02.png",
+  "/images/banner03.png",
+  "/images/banner04.png",
 ];
 
-// 무한 루프를 위해 앞뒤로 클론 붙이기
-const images = [
+// 앞뒤로 클론 붙이기
+const slides = [
   baseImages[baseImages.length - 1],
   ...baseImages,
   baseImages[0],
 ];
 
-const SlideBar = () => {
-  const [currentIdx, setCurrentIdx] = useState(1); // 실제 첫 번째 카드가 가운데로 시작
-  const containerRef = useRef<HTMLDivElement | null>(null);
-  const transitioningRef = useRef(false);
-  const transitionDurationMs = 500;
+const TRANSITION_MS = 500;
+const AUTO_PLAY_MS = 4000;
+
+const SlideBar: React.FC = () => {
+  const [index, setIndex] = useState(1); // 실제 첫 슬라이드
+  const trackRef = useRef<HTMLDivElement | null>(null);
+  const autoPlayRef = useRef<number | null>(null);
+  const isJumpingRef = useRef(false);
+  const startXRef = useRef<number | null>(null);
+  const deltaXRef = useRef(0);
+  const [visibleCount, setVisibleCount] = useState(1);
+
+  // 반응형: 화면 너비에 따라 보여줄 카드 수 조정
+  const updateVisibleCount = useCallback(() => {
+    const w = window.innerWidth;
+    if (w >= 1280) setVisibleCount(4);
+    else if (w >= 1024) setVisibleCount(3);
+    else if (w >= 768) setVisibleCount(2);
+    else setVisibleCount(1);
+  }, []);
+
+  useEffect(() => {
+    updateVisibleCount();
+    window.addEventListener("resize", updateVisibleCount);
+    return () => window.removeEventListener("resize", updateVisibleCount);
+  }, [updateVisibleCount]);
 
   // 자동 재생
+  const resetAuto = useCallback(() => {
+    if (autoPlayRef.current) window.clearInterval(autoPlayRef.current);
+    autoPlayRef.current = window.setInterval(() => {
+      slideTo(index + 1);
+    }, AUTO_PLAY_MS);
+  }, [index]);
+
   useEffect(() => {
-    const id = setInterval(() => {
-      goNext();
-    }, 5000);
-    return () => clearInterval(id);
-  }, []);
-
-  const goNext = () => {
-    if (transitioningRef.current) return;
-    setCurrentIdx((prev) => prev + 1);
-  };
-  const goPrev = () => {
-    if (transitioningRef.current) return;
-    setCurrentIdx((prev) => prev - 1);
-  };
-
-  // 클론 보정 (무한 루프)
-  useEffect(() => {
-    if (!containerRef.current) return;
-    transitioningRef.current = true;
-    const timeout = setTimeout(() => {
-      if (currentIdx === 0) {
-        // 왼쪽 클론 → 실제 마지막
-        disableTransitionOnce(() => setCurrentIdx(baseImages.length));
-      } else if (currentIdx === baseImages.length + 1) {
-        // 오른쪽 클론 → 실제 첫
-        disableTransitionOnce(() => setCurrentIdx(1));
-      }
-      transitioningRef.current = false;
-    }, transitionDurationMs);
-
-    return () => clearTimeout(timeout);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentIdx]);
-
-  // transition 없이 위치 보정
-  const disableTransitionOnce = (callback: () => void) => {
-    if (!containerRef.current) return;
-    const track = containerRef.current.firstElementChild as HTMLElement;
-    if (!track) return;
-    track.style.transition = 'none';
-    callback();
-    // 강제 reflow
-    // eslint-disable-next-line @typescript-eslint/no-unused-expressions
-    track.offsetHeight;
-    track.style.transition = '';
-  };
-
-  // 터치 스와이프 (선택적)
-  useEffect(() => {
-    if (!containerRef.current) return;
-    let startX: number | null = null;
-    const el = containerRef.current;
-    const onTouchStart = (e: TouchEvent) => {
-      startX = e.touches[0].clientX;
-    };
-    const onTouchEnd = (e: TouchEvent) => {
-      if (startX === null) return;
-      const endX = e.changedTouches[0].clientX;
-      const diff = endX - startX;
-      if (diff > 40) goPrev();
-      if (diff < -40) goNext();
-      startX = null;
-    };
-    el.addEventListener('touchstart', onTouchStart);
-    el.addEventListener('touchend', onTouchEnd);
+    resetAuto();
     return () => {
-      el.removeEventListener('touchstart', onTouchStart);
-      el.removeEventListener('touchend', onTouchEnd);
+      if (autoPlayRef.current) window.clearInterval(autoPlayRef.current);
     };
-  }, []);
+  }, [resetAuto]);
 
-  // 인디케이터용 정규화 (baseImages 기준)
-  const normalizedCurrent =
-    currentIdx === 0
+  const slideTo = (newIdx: number) => {
+    if (!trackRef.current) return;
+    setIndex(newIdx);
+  };
+
+  // transitionend 보정 (클론 영역)
+  useEffect(() => {
+    const track = trackRef.current;
+    if (!track) return;
+
+    const handleTransitionEnd = () => {
+      if (index === 0) {
+        // 왼쪽 클론 → 실제 마지막
+        isJumpingRef.current = true;
+        track.style.transition = "none";
+        setIndex(baseImages.length);
+        const percent = (100 / (baseImages.length + 2)) * baseImages.length;
+        track.style.transform = `translateX(-${percent}%)`;
+        // 강제 reflow
+        // eslint-disable-next-line @typescript-eslint/no-unused-expressions
+        track.offsetHeight;
+        track.style.transition = "";
+        isJumpingRef.current = false;
+      } else if (index === baseImages.length + 1) {
+        // 오른쪽 클론 → 실제 첫
+        isJumpingRef.current = true;
+        track.style.transition = "none";
+        setIndex(1);
+        const percent = (100 / (baseImages.length + 2)) * 1;
+        track.style.transform = `translateX(-${percent}%)`;
+        // eslint-disable-next-line @typescript-eslint/no-unused-expressions
+        track.offsetHeight;
+        track.style.transition = "";
+        isJumpingRef.current = false;
+      }
+    };
+
+    track.addEventListener("transitionend", handleTransitionEnd);
+    return () => {
+      track.removeEventListener("transitionend", handleTransitionEnd);
+    };
+  }, [index]);
+
+  // index 변화 -> transform 적용
+  useEffect(() => {
+    if (!trackRef.current) return;
+    const track = trackRef.current;
+    const percent = (100 / (baseImages.length + 2)) * index;
+    if (!isJumpingRef.current) {
+      track.style.transition = `transform ${TRANSITION_MS}ms ease`;
+    }
+    track.style.transform = `translateX(-${percent}%)`;
+  }, [index]);
+
+  const goNext = () => slideTo(index + 1);
+  const goPrev = () => slideTo(index - 1);
+
+  // hover / focus / 터치 시 자동재생 일시정지
+  useEffect(() => {
+    const el = trackRef.current;
+    if (!el) return;
+    const pause = () => {
+      if (autoPlayRef.current) window.clearInterval(autoPlayRef.current);
+    };
+    const resume = () => resetAuto();
+    el.addEventListener("mouseenter", pause);
+    el.addEventListener("mouseleave", resume);
+    el.addEventListener("touchstart", pause);
+    el.addEventListener("touchend", resume);
+    return () => {
+      el.removeEventListener("mouseenter", pause);
+      el.removeEventListener("mouseleave", resume);
+      el.removeEventListener("touchstart", pause);
+      el.removeEventListener("touchend", resume);
+    };
+  }, [resetAuto]);
+
+  // 터치 핸들링 (간단 swipe)
+  const onTouchStart = (e: TouchEvent) => {
+    startXRef.current = e.touches[0].clientX;
+    deltaXRef.current = 0;
+    if (autoPlayRef.current) window.clearInterval(autoPlayRef.current);
+  };
+  const onTouchMove = (e: TouchEvent) => {
+    if (startXRef.current === null) return;
+    deltaXRef.current = e.touches[0].clientX - startXRef.current;
+  };
+  const onTouchEnd = () => {
+    if (Math.abs(deltaXRef.current) > 50) {
+      if (deltaXRef.current > 0) goPrev();
+      else goNext();
+    }
+    startXRef.current = null;
+    deltaXRef.current = 0;
+    resetAuto();
+  };
+
+  // 인디케이터 정규화 (0..3)
+  const normalized =
+    index === 0
       ? baseImages.length - 1
-      : currentIdx === baseImages.length + 1
+      : index === baseImages.length + 1
       ? 0
-      : currentIdx - 1;
+      : index - 1;
 
   return (
-    <div className="relative w-full overflow-hidden py-16">
+    <div className="relative w-full overflow-hidden py-12">
       <div
-        ref={containerRef}
         className="flex items-center justify-center overflow-hidden"
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
       >
         <div
-          className="flex transition-transform duration-500 ease-in-out"
+          ref={trackRef}
+          className="flex"
           style={{
-            width: `${(images.length * 100) / 3}%`,
-            transform: `translateX(calc(-${currentIdx * (100 / 3)}%))`,
+            width: `${(baseImages.length + 2) * (100 / visibleCount)}%`,
+            // translateX는 effect에서 처리
           }}
         >
-          {images.map((src, idx) => (
+          {slides.map((src, idx) => (
             <div
-              key={idx}
+              key={`${idx}-${src}`}
               className="flex-shrink-0 px-1"
               style={{
-                width: '33.3333%',
-                display: 'flex',
-                justifyContent: 'center',
+                width: `${100 / (baseImages.length + 2)}%`,
+                flexBasis: `${100 / visibleCount}%`,
+                display: "flex",
+                justifyContent: "center",
               }}
             >
               <div className="relative overflow-hidden rounded-2xl shadow-lg w-full">
                 <img
                   src={src}
                   alt={`Banner ${idx}`}
-                  className="w-full h-[500px] object-cover object-top"
+                  className="w-full h-[300px] sm:h-[350px] md:h-[400px] object-cover object-bottom"
                 />
-                <div className="absolute inset-0  flex items-end p-4">
-                  <div className="text-white font-semibold text-lg">
-                    {/* 카드 {((idx + baseImages.length - 1) % baseImages.length) + 1} */}
-                  </div>
-                </div>
               </div>
             </div>
           ))}
@@ -159,14 +223,14 @@ const SlideBar = () => {
       </button>
 
       {/* 인디케이터 */}
-      <div className="flex justify-center gap-2 mt-6">
+      <div className="flex justify-center gap-2 mt-4">
         {baseImages.map((_, idx) => (
           <button
             key={idx}
-            onClick={() => setCurrentIdx(idx + 1)}
+            onClick={() => setIndex(idx + 1)}
             aria-label={`Slide ${idx + 1}`}
             className={`w-3 h-3 rounded-full transition ${
-              normalizedCurrent === idx ? 'bg-red-500' : 'bg-gray-500'
+              normalized === idx ? "bg-red-500 scale-110" : "bg-gray-400"
             }`}
           />
         ))}

@@ -5,12 +5,15 @@ import 'react-day-picker/dist/style.css';
 import ModifyCheckList from './ModifyCheckList';
 import type { Item } from './ModifyCheckList';
 import { useChecklistCreator } from '../../hooks/useChecklistCreator';
+import { useRecommendItems } from '../../hooks/useRecommendItems';
+import { computeLocalRecommendations } from '../../hooks/recommendUtils';
 
 type Message = { sender: 'bot' | 'user'; text: string };
 
 const PURPOSE_OPTIONS = ['힐링', '액티비티', '비즈니스', '문화탐방', '캠핑'];
 const TRANSPORT_OPTIONS = ['렌트', '대중교통'];
 const ACTIVITY_OPTIONS = ['등산', '바다 수영', '맛집 탐방', '유적지 탐방'];
+const COMPANION_OPTIONS = ['유아', '미성년자', '노인', '반려 동물'];
 const MINIMAL_ITEMS = ['여권', '충전기', '선크림'];
 
 type Inputs = {
@@ -19,6 +22,7 @@ type Inputs = {
   activities: string[];
   minimalPack: boolean | null;
   exchange: boolean | null;
+  companions: string[];
 };
 
 const EXCHANGE_EXTRA = ['원화', '여권', '지갑'];
@@ -26,58 +30,6 @@ const TRANSPORT_EXTRA: Record<string, string[]> = {
   '대중교통': ['교통카드'],
   렌트: ['국제운전면허증'],
 };
-
-function getRecommendedItems({
-  purpose,
-  transport,
-  activities,
-  minimalPack,
-  exchange,
-}: Inputs): string[] {
-  const set = new Set<string>();
-  ['여권', '충전기'].forEach((i) => set.add(i));
-
-  if (minimalPack) {
-    ['여권', '충전기', '선크림'].forEach((i) => set.add(i));
-  } else {
-    if (purpose === '비즈니스') {
-      ['정장', '노트북', '업무 관련 서류'].forEach((i) => set.add(i));
-    } else if (purpose === '액티비티') {
-      ['트레이닝복', '모자'].forEach((i) => set.add(i));
-    } else if (purpose === '문화탐방' || purpose === '힐링') {
-      ['편한 신발', '물티슈'].forEach((i) => set.add(i));
-    } else {
-      ['여권', '충전기', '선크림'].forEach((i) => set.add(i));
-    }
-
-    activities.forEach((act) => {
-      if (act === '등산') {
-        set.add('트레이닝복');
-        set.add('모자');
-      }
-      if (act === '바다 수영') {
-        set.add('수영복');
-        set.add('수건 / 타올');
-      }
-      if (act === '맛집 탐방') {
-        set.add('물티슈');
-      }
-      if (act === '유적지 탐방') {
-        set.add('편한 신발');
-      }
-    });
-
-    if (transport && TRANSPORT_EXTRA[transport]) {
-      TRANSPORT_EXTRA[transport].forEach((i) => set.add(i));
-    }
-  }
-
-  if (exchange) {
-    EXCHANGE_EXTRA.forEach((i) => set.add(i));
-  }
-
-  return Array.from(set);
-}
 
 interface RecommendedItemsProps {
   items: string[];
@@ -101,18 +53,17 @@ const RecommendedItems: React.FC<RecommendedItemsProps> = ({
     <div className="flex flex-wrap gap-2">
       {items.map((it) => {
         const active = selected.includes(it);
+        const paddingClasses = compact ? 'px-2 py-1' : 'px-3 py-2';
+        const baseClass =
+          active
+            ? 'bg-red-500 text-white border border-red-500'
+            : 'bg-white text-gray-800 border border-gray-300 hover:bg-gray-100';
         return (
           <button
             key={it}
             onClick={() => onToggle(it)}
             aria-pressed={active}
-            className={`
-              flex items-center whitespace-nowrap rounded-full text-sm font-medium transition
-              ${active
-                ? 'bg-red-500 text-white border border-red-500'
-                : 'bg-white text-gray-800 border border-gray-300 hover:bg-gray-100'}
-              px-${compact ? '2' : '3'} py-${compact ? '1' : '2'}
-            `}
+            className={`flex items-center whitespace-nowrap rounded-full text-sm font-medium transition ${baseClass} ${paddingClasses}`}
             style={{ minWidth: 80 }}
           >
             {it}
@@ -127,6 +78,7 @@ export default function MakeCheckList() {
   const [step, setStep] = useState<
     | 'city'
     | 'date'
+    | 'companion'
     | 'purpose'
     | 'jp'
     | 'jp-custom'
@@ -163,6 +115,7 @@ export default function MakeCheckList() {
   const [activities, setActivities] = useState<string[]>([]);
   const [minimalPack, setMinimalPack] = useState<boolean | null>(null);
   const [exchange, setExchange] = useState<boolean | null>(null);
+  const [companions, setCompanions] = useState<string[]>([]);
 
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
   const [customItem, setCustomItem] = useState('');
@@ -178,7 +131,6 @@ export default function MakeCheckList() {
 
   const addMsg = (msg: Message) => setMessages((prev) => [...prev, msg]);
 
-  // flows
   const selectCity = (c: { cityId: number; cityName: string }) => {
     setCity(c);
     addMsg({ sender: 'user', text: c.cityName });
@@ -196,8 +148,8 @@ export default function MakeCheckList() {
     const from = formatYMD(departureDate);
     const to = formatYMD(d);
     addMsg({ sender: 'user', text: `${from} ~ ${to}` });
-    addMsg({ sender: 'bot', text: '여행 목적을 선택해주세요.' });
-    setStep('purpose');
+    addMsg({ sender: 'bot', text: '동행인 혹은 반려동물을 선택해주세요.' });
+    setStep('companion');
   };
 
   const selectPurpose = (opt: string) => {
@@ -246,6 +198,47 @@ export default function MakeCheckList() {
     setStep('items');
   };
 
+  const toggleCompanion = (c: string) => {
+    setCompanions((prev) =>
+      prev.includes(c) ? prev.filter((x) => x !== c) : [...prev, c]
+    );
+  };
+  const finishCompanion = () => {
+    addMsg({
+      sender: 'user',
+      text: companions.length ? companions.join(', ') : '없음',
+    });
+    addMsg({ sender: 'bot', text: '여행 목적을 선택해주세요.' });
+    setStep('purpose');
+  };
+
+  // 추천 훅
+  const {
+    recommended: apiRecommended,
+    loading: recommendLoading,
+    error: recommendError,
+    markUserTouched,
+  } = useRecommendItems({
+    purpose,
+    transport,
+    activities,
+    minimalPack,
+    exchange,
+    companions,
+    jpType,
+    step,
+    jwt: localStorage.getItem('jwt') || '',
+  });
+
+  useEffect(() => {
+    if (apiRecommended.length) {
+      setSelectedItems((prev) => {
+        // 사용자가 직접 수정한 적 없으면 덮어쓰기
+        return apiRecommended;
+      });
+    }
+  }, [apiRecommended]);
+
   // J custom
   const addCustom = () => {
     if (!customItem.trim()) return;
@@ -260,27 +253,8 @@ export default function MakeCheckList() {
     goToEditor();
   };
 
-  // auto recommend
-  useEffect(() => {
-    const isPDone =
-      purpose &&
-      transport &&
-      activities !== undefined &&
-      minimalPack !== null &&
-      exchange !== null;
-    if ((step === 'items' || step === 'exchange') && jpType === 'P' && isPDone) {
-      const recs = getRecommendedItems({
-        purpose,
-        transport,
-        activities,
-        minimalPack,
-        exchange,
-      });
-      setSelectedItems(recs);
-    }
-  }, [purpose, transport, activities, minimalPack, exchange, step, jpType]);
-
   const toggleItem = (it: string) => {
+    markUserTouched(); // 사용자가 직접 건드린 걸 표시
     setSelectedItems((prev) =>
       prev.includes(it) ? prev.filter((x) => x !== it) : [...prev, it]
     );
@@ -342,6 +316,7 @@ export default function MakeCheckList() {
         setActivities([]);
         setMinimalPack(null);
         setExchange(null);
+        setCompanions([]);
         setSelectedItems([]);
         setCustomItems([]);
         setCity(null);
@@ -368,6 +343,14 @@ export default function MakeCheckList() {
   }
 
   const minimalSuggestions = minimalPack ? MINIMAL_ITEMS : [];
+  const fallbackRecs = computeLocalRecommendations({
+    purpose,
+    transport,
+    activities,
+    minimalPack,
+    exchange,
+    companions,
+  });
 
   return (
     <div className="max-w-[1320px] mx-auto">
@@ -380,11 +363,15 @@ export default function MakeCheckList() {
           {messages.map((m, i) => (
             <div
               key={i}
-              className={`flex ${m.sender === 'bot' ? 'justify-start' : 'justify-end'}`}
+              className={`flex ${
+                m.sender === 'bot' ? 'justify-start' : 'justify-end'
+              }`}
             >
               <div
                 className={`px-4 py-2 rounded-lg whitespace-pre-wrap ${
-                  m.sender === 'bot' ? 'bg-gray-100 text-gray-800' : 'bg-red-500 text-white'
+                  m.sender === 'bot'
+                    ? 'bg-gray-100 text-gray-800'
+                    : 'bg-red-500 text-white'
                 }`}
               >
                 {m.text}
@@ -429,13 +416,53 @@ export default function MakeCheckList() {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <p className="mb-2 font-medium">출발일</p>
-              <DayPicker mode="single" selected={departureDate} onSelect={handleDepartureSelect} />
+              <DayPicker
+                mode="single"
+                selected={departureDate}
+                onSelect={handleDepartureSelect}
+              />
             </div>
             <div>
               <p className="mb-2 font-medium">도착일</p>
-              <DayPicker mode="single" selected={arrivalDate} onSelect={handleArrivalSelect} />
+              <DayPicker
+                mode="single"
+                selected={arrivalDate}
+                onSelect={handleArrivalSelect}
+              />
             </div>
           </div>
+        )}
+
+        {/* companion */}
+        {step === 'companion' && (
+          <>
+            <div className="flex gap-2 flex-wrap mb-4">
+              {COMPANION_OPTIONS.map((opt) => {
+                const active = companions.includes(opt);
+                return (
+                  <button
+                    key={opt}
+                    onClick={() => toggleCompanion(opt)}
+                    className={`px-4 py-2 rounded-full border ${
+                      active
+                        ? 'bg-red-500 text-white border-red-500'
+                        : 'bg-white text-gray-800 border border-gray-300'
+                    }`}
+                  >
+                    {opt}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="flex justify-end">
+              <button
+                onClick={finishCompanion}
+                className="bg-red-500 text-white px-6 py-2 rounded-full"
+              >
+                다음
+              </button>
+            </div>
+          </>
         )}
 
         {/* purpose */}
@@ -460,10 +487,16 @@ export default function MakeCheckList() {
         {/* jp */}
         {step === 'jp' && (
           <div className="flex gap-2">
-            <button onClick={() => selectJp('J')} className="px-6 py-2 rounded-full bg-gray-800 text-white">
+            <button
+              onClick={() => selectJp('J')}
+              className="px-6 py-2 rounded-full bg-gray-800 text-white"
+            >
               J
             </button>
-            <button onClick={() => selectJp('P')} className="px-6 py-2 rounded-full bg-red-500 text-white">
+            <button
+              onClick={() => selectJp('P')}
+              className="px-6 py-2 rounded-full bg-red-500 text-white"
+            >
               P
             </button>
           </div>
@@ -481,19 +514,34 @@ export default function MakeCheckList() {
                 className="flex-1 border rounded px-3 py-2 focus:outline-none"
                 placeholder="직접 입력할 준비물"
               />
-              <button onClick={addCustom} className="bg-red-500 text-white px-4 py-2 rounded">
+              <button
+                onClick={addCustom}
+                className="bg-red-500 text-white px-4 py-2 rounded"
+              >
                 추가
               </button>
             </div>
             <div className="flex flex-wrap gap-2 mb-2">
               {customItems.map((it) => (
-                <div key={it} className="px-3 py-1 bg-gray-100 rounded-full flex items-center gap-2 text-sm">
+                <div
+                  key={it}
+                  className="px-3 py-1 bg-gray-100 rounded-full flex items-center gap-2 text-sm"
+                >
                   {it}
-                  <button onClick={() => setCustomItems((p) => p.filter((x) => x !== it))}>✕</button>
+                  <button
+                    onClick={() =>
+                      setCustomItems((p) => p.filter((x) => x !== it))
+                    }
+                  >
+                    ✕
+                  </button>
                 </div>
               ))}
             </div>
-            <button onClick={finishCustom} className="ml-auto bg-red-500 text-white px-6 py-2 rounded-full">
+            <button
+              onClick={finishCustom}
+              className="ml-auto bg-red-500 text-white px-6 py-2 rounded-full"
+            >
               완료
             </button>
           </>
@@ -536,7 +584,10 @@ export default function MakeCheckList() {
                 </button>
               ))}
             </div>
-            <button onClick={finishActivities} className="ml-auto bg-red-500 text-white px-6 py-2 rounded-full">
+            <button
+              onClick={finishActivities}
+              className="ml-auto bg-red-500 text-white px-6 py-2 rounded-full"
+            >
               다음
             </button>
           </>
@@ -545,10 +596,16 @@ export default function MakeCheckList() {
         {/* minimal */}
         {step === 'minimal' && (
           <div className="flex gap-2">
-            <button onClick={() => selectMinimal(true)} className="px-4 py-2 rounded-full bg-red-500 text-white">
+            <button
+              onClick={() => selectMinimal(true)}
+              className="px-4 py-2 rounded-full bg-red-500 text-white"
+            >
               예
             </button>
-            <button onClick={() => selectMinimal(false)} className="px-4 py-2 rounded-full bg-gray-300 text-gray-800">
+            <button
+              onClick={() => selectMinimal(false)}
+              className="px-4 py-2 rounded-full bg-gray-300 text-gray-800"
+            >
               아니요
             </button>
           </div>
@@ -557,10 +614,16 @@ export default function MakeCheckList() {
         {/* exchange */}
         {step === 'exchange' && (
           <div className="flex gap-2">
-            <button onClick={() => selectExchange(true)} className="px-4 py-2 rounded-full bg-red-500 text-white">
+            <button
+              onClick={() => selectExchange(true)}
+              className="px-4 py-2 rounded-full bg-red-500 text-white"
+            >
               예
             </button>
-            <button onClick={() => selectExchange(false)} className="px-4 py-2 rounded-full bg-gray-300 text-gray-800">
+            <button
+              onClick={() => selectExchange(false)}
+              className="px-4 py-2 rounded-full bg-gray-300 text-gray-800"
+            >
               아니요
             </button>
           </div>
@@ -572,13 +635,7 @@ export default function MakeCheckList() {
             <div className="mb-4">
               <RecommendedItems
                 title="자동 추천된 준비물"
-                items={getRecommendedItems({
-                  purpose,
-                  transport,
-                  activities,
-                  minimalPack,
-                  exchange,
-                })}
+                items={apiRecommended.length ? apiRecommended : fallbackRecs}
                 selected={selectedItems}
                 onToggle={toggleItem}
               />
@@ -594,16 +651,23 @@ export default function MakeCheckList() {
                 </div>
               )}
             </div>
+            {recommendError && (
+              <div className="text-sm text-red-500 mb-2">
+                추천 로딩 실패: {recommendError}
+              </div>
+            )}
             <div className="flex justify-end">
               <button
                 onClick={finishItems}
-                disabled={creating}
+                disabled={creating || recommendLoading}
                 className="bg-red-500 text-white px-6 py-2 rounded-full"
               >
                 {creating ? '생성 중...' : '완료'}
               </button>
             </div>
-            {createError && <div className="text-red-500 mt-2">{createError.message}</div>}
+            {createError && (
+              <div className="text-red-500 mt-2">{createError.message}</div>
+            )}
           </>
         )}
       </div>

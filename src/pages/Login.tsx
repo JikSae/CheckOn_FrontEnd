@@ -1,100 +1,104 @@
+// ─── Login.tsx ─────────────────────────────────────────────
+import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { useState } from "react";
+console.log("API URL:", import.meta.env.VITE_API_URL);
+
+// VITE_ 접두사로 정의한 환경 변수를 사용하세요
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:4000";
 
 export default function Login() {
-  const [form, setForm] = useState({
-    email: "",
-    password: "",
-  });
-
   const navigate = useNavigate();
+  const [form, setForm] = useState({ email: "", password: "" });
   const [error, setError] = useState<string>("");
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { id, value } = e.target;
-    setForm((prev) => ({ ...prev, [id]: value }));
-    setError(""); // 입력할 때 마다 에러 초기화
+    setForm(prev => ({ ...prev, [id]: value }));
+    setError("");
   };
 
   const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault(); // 기본 제출 막기
-
-    
-
+    e.preventDefault();
+    if (!form.email || !form.password) {
+      setError("이메일과 비밀번호를 모두 입력해주세요.");
+      return;
+    }
     try {
-      const response = await fetch("http://localhost:3000/auth/login", {
+      const response = await fetch(`${API_URL}/auth/sign-in`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
       });
-
       const data = await response.json();
-
       if (response.ok) {
-        localStorage.setItem("token", data.token);
-        localStorage.setItem("nickname", data.nickname);
-        alert("로그인 성공!");
-        navigate("/"); // 홈으로 이동
+        localStorage.setItem("token", data.token ?? "");
+        localStorage.setItem("nickname", data.nickname ?? "");
+        navigate("/");
       } else {
-        alert(data.message || "로그인 실패");
+        setError(data.message || "로그인 실패");
       }
     } catch (err) {
-      console.error("로그인 에러", err);
-      alert("서버 연결에 실패했습니다.");
+      console.error("Login error:", err);
+      setError("서버 연결에 실패했습니다.");
     }
   };
 
   return (
     <div className="min-h-screen flex flex-col bg-[#FEFEFE] text-gray-800">
-      <div className="h-20 w-full">{/* <Header /> 자리 */}</div>
-
-      {/* 로그인 영역 */}
-      <main className="flex-1 flex justify-center pt-12 sm:pt-2">
-        <div className="w-full max-w-md px-4 sm:px-6">
-          <h1 className="text-4xl sm:text-6xl font-bold text-center text-red-500 mb-12 sm:mb-16">
+      <div className="h-20 w-full" />
+      <main className="flex-1 flex justify-center pt-12">
+        <div className="w-full max-w-md px-4">
+          <h1 className="text-4xl font-bold text-center text-red-500 mb-12">
             Check .On
           </h1>
-
-          <form className="space-y-10">
+          <form onSubmit={handleLogin} className="space-y-6">
             <div>
-              <label htmlFor="email" className="block mb-2 text-base sm:text-lg font-semibold">
-                아이디
+              <label htmlFor="email" className="block mb-2 font-semibold">
+                아이디 (이메일)
               </label>
               <input
-                type="email"
                 id="email"
+                type="email"
+                value={form.email}
+                onChange={handleChange}
                 placeholder="예) test123@check.com"
-                className="w-full bg-white border-b border-gray-400 placeholder-gray-400 py-3 px-2 text-base sm:text-lg focus:outline-none"
+                className="w-full border-b border-gray-400 py-2 px-1 focus:outline-none"
+                required
               />
             </div>
-
             <div>
-              <label htmlFor="password" className="block mb-2 text-base sm:text-lg font-semibold">
+              <label htmlFor="password" className="block mb-2 font-semibold">
                 비밀번호
               </label>
               <input
-                type="password"
                 id="password"
-                className="w-full bg-white border-b border-gray-400 py-3 px-2 text-base sm:text-lg focus:outline-none"
+                type="password"
+                value={form.password}
+                onChange={handleChange}
+                className="w-full border-b border-gray-400 py-2 px-1 focus:outline-none"
+                required
               />
             </div>
-
+            {error && <p className="text-red-500">{error}</p>}
             <button
               type="submit"
-              className="w-full py-4 text-base sm:text-lg bg-blue-500 text-white font-bold rounded-lg hover:bg-blue-600 transition"
+              className="w-full py-3 bg-blue-500 text-white font-bold rounded-lg hover:bg-blue-600"
             >
               로그인
             </button>
           </form>
-
-          <div className="flex justify-center gap-4 sm:gap-6 text-sm sm:text-base text-gray-700 mt-10">
-            <Link to="/signup" className="hover:underline">회원가입</Link>
+          <div className="flex justify-center gap-4 text-sm text-gray-700 mt-8">
+            <Link to="/signup" className="hover:underline">
+              회원가입
+            </Link>
             <span>|</span>
-            <Link to="/account-recovery?type=rest-id" className="hover:underline">아이디 찾기</Link>
+            <Link to="/account-recovery?type=find-id" className="hover:underline">
+              아이디 찾기
+            </Link>
             <span>|</span>
-            <Link to="/account-recovery?type=reset-password" className="hover:underline">비밀번호 변경</Link>
+            <Link to="/account-recovery?type=reset-password" className="hover:underline">
+              비밀번호 변경
+            </Link>
           </div>
         </div>
       </main>

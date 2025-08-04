@@ -46,7 +46,7 @@ export function MyReviews() {
       try {
         setLoading(true);
         const token = localStorage.getItem('jwt') || '';
-        const res = await axios.get('/api/my/reviews', {
+        const res = await axios.get('http://localhost:4000/my/items-reviews', {
           headers: {
             Authorization: `Bearer ${token}`,
           },

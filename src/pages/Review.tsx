@@ -1,51 +1,76 @@
-import React, { useState } from "react";
+// Review.tsx
+import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 
-const categories = [
-  "의류", "세면 용품", "화장품", "아기 용품", "소모품",
-  "필수품", "출력물", "비상약", "전자기기", "애완 용품", "기타"
-];
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:4000";
 
-const dummyPosts = Array.from({ length: 23 }, (_, i) => ({
-  id: i + 1,
-  category: ["의류", "전자기기", "화장품"][i % 3],
-  title: `샘플 제목 ${i + 1}`,
-  author: `user${i + 1}`,
-  createdAt: `2025.07.${String(22 + (i % 7)).padStart(2, "0")}`,
-  likes: 100 - i * 2,
-}));
+interface ReviewSummary {
+  review_id: number;
+  category: string;
+  title: string;
+  author: string;
+  created_at: string;
+  likes: number;
+}
 
 export default function Review() {
+  const [posts, setPosts] = useState<ReviewSummary[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [sortType, setSortType] = useState<'likes' | 'latest'>('likes');
   const postsPerPage = 20;
 
-  // 필터링 & 정렬
-  const filteredPosts = selectedCategory
-    ? dummyPosts.filter((post) => post.category === selectedCategory)
-    : dummyPosts;
-  const sortedPosts = [...filteredPosts].sort((a, b) => {
-    if (sortType === 'likes') return b.likes - a.likes;
-    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+  const categories = [
+    "의류", "세면 용품", "화장품", "아기 용품", "소모품",
+    "필수품", "출력물", "비상약", "전자기기", "애완 용품", "기타"
+  ];
+
+  useEffect(() => {
+    const fetchReviews = async () => {
+      try {
+        const res = await fetch(`${API_URL}/my/items-reviews`);
+        const data = await res.json();
+  
+        // 배열이 아닌 객체 형태로 들어오는 경우 처리
+        if (Array.isArray(data.reviews)) {
+          setPosts(data.reviews);
+        } else {
+          console.error("리뷰 데이터 형식이 배열이 아닙니다:", data);
+          setPosts([]);
+        }
+      } catch (err) {
+        console.error("후기 목록 불러오기 실패:", err);
+        setPosts([]);
+      }
+    };
+    fetchReviews();
+  }, []);
+  
+
+  const filtered = Array.isArray(posts)
+    ? selectedCategory
+      ? posts.filter((post) => post.category === selectedCategory)
+      : posts
+    : [];
+
+  const sorted = [...filtered].sort((a, b) => {
+    if (sortType === "likes") return b.likes - a.likes;
+    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
   });
 
-  const totalPages = Math.ceil(sortedPosts.length / postsPerPage);
-  const currentPosts = sortedPosts.slice(
+  const totalPages = Math.ceil(sorted.length / postsPerPage);
+  const currentPosts = sorted.slice(
     (currentPage - 1) * postsPerPage,
     currentPage * postsPerPage
   );
 
   return (
-    <div className="w-screen h-screen flex flex-col bg-[#f4f9ff]">
-      {/* <Header /> */}
+    <div className="w-screen min-h-screen flex flex-col bg-[#f4f9ff]">
       <main className="flex-1 px-4 py-10">
         <div className="w-full max-w-[1320px] mx-auto">
           <h1 className="text-4xl font-bold text-center mb-6">준비물 후기 공유</h1>
 
-          {/* 카테고리 & 정렬 컨트롤 */}
           <div className="flex justify-between items-center mb-4">
-            {/* 왼쪽: 카테고리 */}
             <div className="flex items-center gap-2">
               <label className="text-base font-medium">카테고리:</label>
               <select
@@ -64,7 +89,6 @@ export default function Review() {
               </select>
             </div>
 
-            {/* 오른쪽: 정렬 */}
             <div className="flex items-center gap-2">
               <label className="text-base font-medium">정렬:</label>
               <select
@@ -78,7 +102,6 @@ export default function Review() {
             </div>
           </div>
 
-          {/* 게시판 테이블 */}
           <table className="w-full text-sm border-t border-b border-gray-400">
             <thead>
               <tr className="border-b border-gray-300 text-center">
@@ -92,29 +115,30 @@ export default function Review() {
             </thead>
             <tbody>
               {currentPosts.map((post, idx) => (
-                <tr key={post.id} className="border-t border-gray-200 hover:bg-gray-50 text-center">
+                <tr key={`post-${post.review_id}`} className="border-t border-gray-200 hover:bg-gray-50 text-center">
                   <td className="py-3">{(currentPage - 1) * postsPerPage + idx + 1}</td>
                   <td>{post.category}</td>
                   <td>
-                    <Link to={`/review/${post.id}`} className="text-blue-600 hover:underline block text-center">
+                    <Link to={`/review/${post.review_id}`} className="text-blue-600 hover:underline block text-center">
                       {post.title}
                     </Link>
                   </td>
                   <td>{post.author}</td>
-                  <td>{post.createdAt}</td>
+                  <td>{post.created_at}</td>
                   <td className="text-right pr-4">{post.likes}</td>
                 </tr>
               ))}
-              {currentPosts.length < postsPerPage &&
-                Array.from({ length: postsPerPage - currentPosts.length }).map((_, i) => (
-                  <tr key={`empty-${i}`} className="h-12">
-                    <td colSpan={6}>&nbsp;</td>
-                  </tr>
-                ))}
+
+              {/* 빈 행 처리 */}
+              {Array.from({ length: postsPerPage - currentPosts.length }).map((_, i) => (
+                <tr key={`empty-row-${i}`} className="h-12">
+                  <td colSpan={6}>&nbsp;</td>
+                </tr>
+              ))}
             </tbody>
+
           </table>
 
-          {/* 페이지네이션 */}
           <div className="flex justify-center mt-10 gap-2 text-sm">
             <button onClick={() => setCurrentPage(1)} disabled={currentPage === 1}>{'<<'}</button>
             <button onClick={() => setCurrentPage(p => Math.max(p - 1, 1))} disabled={currentPage === 1}>{'<'}</button>

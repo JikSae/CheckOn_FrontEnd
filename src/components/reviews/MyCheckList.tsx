@@ -38,7 +38,7 @@ export function MyCheckList() {
       try {
         setLoading(true);
         const token = localStorage.getItem('jwt') || '';
-        const res = await axios.get('/api/my/shared-checklists', {
+        const res = await axios.get('http://localhost:4000/my/shared-checklists', {
           headers: { Authorization: `Bearer ${token}` },
         });
 

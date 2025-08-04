@@ -8,68 +8,57 @@ import WeatherCard from '../../components/weather/WeatherCard';
 
 const Main: React.FC = () => {
   return (
-    <div className="max-w-[1320px] mx-auto">
+    <div className="max-w-[1320px] mx-auto px-4">
       {/* banner */}
+      <div className="mb-8">
         <SlideBar />
-        <div className="flex gap-[70px]">
-           {/* Review */}
-          <section className="mb-[120px]">
-            <Link
-              to="/Review"
-              className="block w-[280px] h-[30px] mb-[40px] transform no-underline"
-            >
-              <span className="text-[30px] font-bold">추천 물품 ▸</span>
-            </Link>
-            <div className="w-[400px] h-[300px] border ">
-              <Ranking />
-            </div>
-          </section>
+      </div>
 
-      
+      {/* Review + Record */}
+      <div className="flex flex-col lg:flex-row gap-8 mb-12">
+        {/* Review */}
+        <section className="flex-shrink-0 w-full lg:w-1/3">
+          <Link to="/Review" className="inline-block mb-4 no-underline">
+            <span className="text-2xl md:text-3xl font-bold">추천 물품 ▸</span>
+          </Link>
+          <div className="w-full min-h-[220px] border rounded-md p-4">
+            <Ranking />
+          </div>
+        </section>
 
-          {/* Record */}
-          <section className="mb-[120px]">
-            <Link
-              to="/Record"
-              className="block w-[280px] h-[30px] mb-[40px]  transform no-underline"
-            >
-              <span className="text-[30px] font-bold">찜목록  ▸</span>
-            </Link>
-            <div className="w-[850px] h-[300px] border ">
-              <p>contents</p>
-            </div>
-          </section>
+        {/* Record */}
+        <section className="flex-shrink-0 w-full lg:w-2/3">
+          <Link to="/Record" className="inline-block mb-4 no-underline">
+            <span className="text-2xl md:text-3xl font-bold">찜목록 ▸</span>
+          </Link>
+          <div className="w-full min-h-[220px] border rounded-md p-4">
+            <p>contents</p>
+          </div>
+        </section>
+      </div>
 
-        </div>
-
-       
       {/* Information */}
-      <section className="mb-[120px]">
-        <Link
-         to="/information"
-          className="block w-[280px] h-[30px] mb-[40px]  transform no-underline"
-        >
-          <span className="text-[30px] font-bold">정보 ▸</span>
+      <section className="mb-12">
+        <Link to="/information" className="inline-block mb-4 no-underline">
+          <span className="text-2xl md:text-3xl font-bold">정보 ▸</span>
         </Link>
-        <div className="flex w-[95%] gap-[150px]">
+        <div className="flex flex-col md:flex-row gap-8 w-full">
           {/* Exchange */}
-          <div className="w-[325px] h-[370px]">
-            <h4 className="text-[20px] block w-[56px] h-[36px]  mb-[20px]">환율</h4>
-            <div className="w-[300px] h-[320px]" >
+          <div className="flex-1 min-w-0">
+            <h4 className="text-lg font-medium mb-2">환율</h4>
+            <div className="w-full border rounded-md p-4 min-h-[260px]">
               <ExchangeRate />
             </div>
           </div>
           {/* Weather */}
-          <div className="w-[325px] h-[370px] ">
-            <h4 className="text-[20px] block w-[56px] h-[36px]  mb-[20px]">날씨</h4>
-            <div className="w-[700px] h-[250px]" >
+          <div className="flex-1 min-w-0">
+            <h4 className="text-lg font-medium mb-2">날씨</h4>
+            <div className="w-full border rounded-md p-4 min-h-[260px]">
               <WeatherCard />
-              
             </div>
           </div>
         </div>
       </section>
-
     </div>
   );
 };
