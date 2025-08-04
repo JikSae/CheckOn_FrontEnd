@@ -10,7 +10,11 @@ interface Item {
   review: boolean;
 }
 
-// 초기 목록
+// props에 checklistId 추가
+interface CheckListModalProps {
+  checklistId: number;
+}
+
 const initialItems: Item[] = [
   { name: '전기 어댑터(돼지코)', category: '기내', active: true, review: false },
   { name: '동전지갑', category: '기내', active: true, review: false },
@@ -26,13 +30,12 @@ const initialItems: Item[] = [
   { name: '여벌 옷 및 속옷', category: '위탁', active: true, review: false },
 ];
 
-export default function CheckListModal() {
+export default function CheckListModal({ checklistId }: CheckListModalProps) {
   const [items, setItems] = useState<Item[]>(initialItems);
 
   const inCabinRef = useRef<HTMLDivElement>(null);
   const checkedRef = useRef<HTMLDivElement>(null);
 
-  // 리뷰 모달 상태 (텍스트 + 이미지)
   const [isReviewModalOpen, setReviewModalOpen] = useState(false);
   const [reviewItems, setReviewItems] = useState<Item[]>([]);
   const [currentIdx, setCurrentIdx] = useState(0);
@@ -40,7 +43,6 @@ export default function CheckListModal() {
   const [reviewImages, setReviewImages] = useState<(File | null)[]>([]);
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
 
-  // 아이템 업데이트
   const handleCategoryChange = (name: string, newCat: SelectType) => {
     setItems(prev =>
       prev.map(item => (item.name === name ? { ...item, category: newCat } : item))
@@ -57,7 +59,6 @@ export default function CheckListModal() {
     );
   };
 
-  // 리뷰 모달 열기
   const handleOpenReview = () => {
     const selected = items.filter(item => item.review);
     if (!selected.length) return;
@@ -70,7 +71,6 @@ export default function CheckListModal() {
   };
   const handleCloseReview = () => setReviewModalOpen(false);
 
-  // 텍스트 업데이트
   const updateText = (text: string) => {
     setReviewTexts(prev => {
       const copy = [...prev];
@@ -79,7 +79,6 @@ export default function CheckListModal() {
     });
   };
 
-  // 이미지 변경
   const handleImageChange = (file: File, idx: number) => {
     const url = URL.createObjectURL(file);
     setPreviewUrls(prev => {
@@ -94,24 +93,22 @@ export default function CheckListModal() {
     });
   };
 
-  // 다음 / 완료
   const handleNext = () => {
-    if (reviewTexts[currentIdx].trim().length < 10) return; // 최소 10자
+    if (reviewTexts[currentIdx].trim().length < 10) return;
     if (currentIdx < reviewItems.length - 1) {
       setCurrentIdx(i => i + 1);
     } else {
-      // 완료: 수집된 리뷰들
       const payload = reviewItems.map((item, idx) => ({
         name: item.name,
         text: reviewTexts[idx],
-        image: reviewImages[idx], // 서버로 보낼 때 처리
+        image: reviewImages[idx],
+        checklistId, // 여기 체크리스트 아이디 포함 가능
       }));
       console.log('모든 리뷰 제출 준비:', payload);
       setReviewModalOpen(false);
     }
   };
 
-  // 섹션 분류
   const inCabinItems = items.filter(item => item.category === '기내');
   const checkedItems = items.filter(item => item.category === '위탁');
 
@@ -127,10 +124,7 @@ export default function CheckListModal() {
         {title === '기내' ? '기내용' : '위탁 수화물'}
       </div>
       <div className="px-4 py-6">
-        <div
-          className="grid grid-cols-[auto_3fr_2fr_auto] gap-4 items-center
-                        text-gray-600 font-medium border-b border-gray-300 pb-2 mb-4"
-        >
+        <div className="grid grid-cols-[auto_3fr_2fr_auto] gap-4 items-center text-gray-600 font-medium border-b border-gray-300 pb-2 mb-4">
           <div />
           <div className="text-left">물품 이름</div>
           <div className="text-center">Check! / 이동</div>
@@ -156,17 +150,15 @@ export default function CheckListModal() {
                   <button
                     key={type}
                     onClick={() => handleCategoryChange(item.name, type)}
-                    className={`px-3 py-1 rounded-full text-sm transition
-                      ${
-                        type === item.category
-                          ? type === '기내'
-                            ? 'bg-gray-700 text-white'
-                            : 'bg-red-500 text-white'
-                          : type === '기내'
-                          ? 'bg-gray-200 text-gray-700'
-                          : 'bg-red-100 text-red-600'
-                      }
-                    `}
+                    className={`px-3 py-1 rounded-full text-sm transition ${
+                      type === item.category
+                        ? type === '기내'
+                          ? 'bg-gray-700 text-white'
+                          : 'bg-red-500 text-white'
+                        : type === '기내'
+                        ? 'bg-gray-200 text-gray-700'
+                        : 'bg-red-100 text-red-600'
+                    }`}
                   >
                     {type}
                   </button>
@@ -185,7 +177,6 @@ export default function CheckListModal() {
     </div>
   );
 
-  // 리뷰 항목 수가 바뀌면 동기화 (안정성)
   useEffect(() => {
     if (reviewItems.length > 0) {
       setReviewTexts(prev => {
@@ -239,16 +230,13 @@ export default function CheckListModal() {
 
             <h2 className="text-xl font-bold mb-1">Review</h2>
             <p className="text-sm text-gray-600 mb-4">
-              {`오사카 힐링 여행 — ${currentIdx + 1} / ${reviewItems.length}`}
+              {`체크리스트 #${checklistId} — ${currentIdx + 1} / ${reviewItems.length}`}
             </p>
             <hr className="border-gray-300 mb-4" />
 
-            <p className="font-semibold mb-2">
-              {reviewItems[currentIdx].name}
-            </p>
+            <p className="font-semibold mb-2">{reviewItems[currentIdx].name}</p>
 
             <div className="grid grid-cols-2 gap-6 mb-6">
-              {/* 이미지 업로드 박스 */}
               <div className="relative border border-gray-300 rounded-lg h-64 bg-gray-100 flex items-center justify-center text-gray-400 overflow-hidden">
                 {previewUrls[currentIdx] ? (
                   <>
@@ -278,12 +266,8 @@ export default function CheckListModal() {
                 ) : (
                   <label className="flex flex-col items-center justify-center w-full h-full cursor-pointer">
                     <div className="text-center">
-                      <div className="mb-1 font-medium">
-                        사진을 넣어주세요
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        클릭해서 업로드
-                      </div>
+                      <div className="mb-1 font-medium">사진을 넣어주세요</div>
+                      <div className="text-xs text-gray-500">클릭해서 업로드</div>
                     </div>
                     <input
                       type="file"
@@ -298,7 +282,6 @@ export default function CheckListModal() {
                 )}
               </div>
 
-              {/* 후기 텍스트 */}
               <div>
                 <textarea
                   value={reviewTexts[currentIdx]}

@@ -1,51 +1,138 @@
-import React from 'react';
+// src/components/MyCheckList.tsx
+import React, { useEffect, useState } from 'react';
+import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
 
-interface Item {
-  id: number;
+export interface SharedCheckList {
+  checklist_id: number;
   title: string;
-  dateRange: string;
-  tags: string;
-  createdAt: string;
+  city: string;
+  travel_type: string;
+  travel_start: string; // ISO date string
+  travel_end: string; // ISO date string
+  created_at: string; // ISO datetime
+  content: string;
+  likes: number;
 }
 
-const DUMMY: Item[] = [
-  {
-    id: 1,
-    title: '일본 여행 후기',
-    dateRange: '25.06.10 ~ 25.06.17',
-    tags: '#나라 #힐링 #동전지갑',
-    createdAt: '25.06.21',
-  },
-  // … 더미 데이터
-];
+const formatDate = (iso: string) => {
+  try {
+    return new Date(iso).toLocaleDateString('ko-KR', {
+      year: '2-digit',
+      month: '2-digit',
+      day: '2-digit',
+    });
+  } catch {
+    return iso;
+  }
+};
 
 export function MyCheckList() {
+  const navigate = useNavigate();
+  const [data, setData] = useState<SharedCheckList[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchShared = async () => {
+      try {
+        setLoading(true);
+        const token = localStorage.getItem('jwt') || '';
+        const res = await axios.get('/api/my/shared-checklists', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        let payload: any = res.data;
+        if (!Array.isArray(payload) && Array.isArray(res.data?.data)) {
+          payload = res.data.data;
+        }
+
+        if (!Array.isArray(payload)) {
+          console.warn('예상한 배열이 아님:', res.data);
+          setData([]);
+        } else {
+          setData(payload);
+        }
+      } catch (e: any) {
+        console.error(e);
+        setError(
+          e.response?.data?.message || '불러오는 중 오류가 발생했습니다.'
+        );
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchShared();
+  }, []);
+
+  if (loading) {
+    return <div className="py-6 text-center text-sm">불러오는 중...</div>;
+  }
+
+  if (error) {
+    return (
+      <div className="py-6 text-center text-sm text-red-500">
+        에러: {error}
+      </div>
+    );
+  }
+
+  if (data.length === 0) {
+    return (
+      <div className="py-6 text-center text-sm">
+        공유한 체크리스트가 없습니다.
+      </div>
+    );
+  }
+
   return (
-    <table className="w-full table-auto border-collapse text-left">
-      <colgroup>
-        <col className="w-1/2" />   {/* 제목: 50% */}
-        <col className="w-1/6" />   {/* 날짜: 16.7% */}
-        <col className="w-1/4" />   {/* 태그: 25% */}
-        <col className="w-1/12" />  {/* 작성일: 8.3% */}
-      </colgroup>
-      <thead>
-        <tr>
-          <th className="border-b-2 py-2 text-center text-[10px]">제목</th>
-          <th className="border-b-2 py-2 text-center text-[10px]">날짜</th>
-          <th className="border-b-2 py-2 text-center text-[10px]">태그</th>
-          <th className="border-b-2 py-2 text-center text-[10px]">작성일</th>
-        </tr>
-      </thead>
-      <tbody>
-        {DUMMY.map((row) => (
-          <tr key={row.id} className="border-b h-12">
-            <td className="px-2 text-center text-[12px]">{row.title}</td>
-            <td className="px-2 text-center text-[10px]">{row.dateRange}</td>
-            <td className="px-2 text-center text-[10px]">{row.tags}</td>
-            <td className="px-2 text-center text-[10px]">{row.createdAt}</td>
+    <div className="overflow-x-auto">
+      <table className="w-full table-fixed border-collapse text-left text-[12px]">
+        <colgroup>
+          <col style={{ width: '40%' }} /> {/* 제목/콘텐츠 */}
+          <col style={{ width: '15%' }} /> {/* 기간 */}
+          <col style={{ width: '15%' }} /> {/* 도시·타입 */}
+          <col style={{ width: '15%' }} /> {/* 공유일 */}
+          <col style={{ width: '15%' }} /> {/* 좋아요 */}
+        </colgroup>
+        <thead>
+          <tr className="border-b">
+            <th className="py-2 px-2">제목</th>
+            <th className="py-2 px-2">기간</th>
+            <th className="py-2 px-2">도시·타입</th>
+            <th className="py-2 px-2">공유일</th>
+            <th className="py-2 px-2">좋아요</th>
           </tr>
-        ))}
-      </tbody>
-    </table>
+        </thead>
+        <tbody className="max-h-[280px] overflow-y-auto">
+          {data.map((row) => (
+            <tr
+              key={row.checklist_id}
+              className="border-b hover:bg-gray-50 cursor-pointer"
+              onClick={() =>
+                navigate(`/shared-checklist/${row.checklist_id}`, {
+                  state: { checklist: row },
+                })
+              }
+            >
+              <td className="py-2 px-2">
+                <div className="font-medium">{row.title}</div>
+                <div className="text-[10px] text-gray-500 line-clamp-2">
+                  {row.content}
+                </div>
+              </td>
+              <td className="py-2 px-2">
+                {formatDate(row.travel_start)} ~ {formatDate(row.travel_end)}
+              </td>
+              <td className="py-2 px-2">
+                {row.city} · {row.travel_type}
+              </td>
+              <td className="py-2 px-2">{formatDate(row.created_at)}</td>
+              <td className="py-2 px-2 text-center">{row.likes}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }

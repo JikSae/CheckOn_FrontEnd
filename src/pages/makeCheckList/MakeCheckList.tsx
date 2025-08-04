@@ -1,32 +1,130 @@
-// src/components/ChatChecklist.tsx
-import React, { useState } from 'react';
+// src/components/MakeCheckList.tsx
+import React, { useEffect, useState, useCallback } from 'react';
 import { DayPicker } from 'react-day-picker';
 import 'react-day-picker/dist/style.css';
 import ModifyCheckList from './ModifyCheckList';
 import type { Item } from './ModifyCheckList';
+import { useChecklistCreator } from '../../hooks/useChecklistCreator';
 
 type Message = { sender: 'bot' | 'user'; text: string };
 
-const CITIES = ['Tokyo', 'Osaka', 'Kyoto', 'Nara', 'Nagoya', 'Sapporo', 'Hakodate', 'Otaru'] as const;
-type City = typeof CITIES[number];
-
-// 옵션 상수
 const PURPOSE_OPTIONS = ['힐링', '액티비티', '비즈니스', '문화탐방', '캠핑'];
 const TRANSPORT_OPTIONS = ['렌트', '대중교통'];
 const ACTIVITY_OPTIONS = ['등산', '바다 수영', '맛집 탐방', '유적지 탐방'];
-const DEFAULT_ITEMS = [
-  '여권 및 신분증',
-  '항공권/기차표 예약 확인',
-  '숙소 예약 확인',
-  '충전기',
-  '선크림',
-  '여행자 보험',
-];
 const MINIMAL_ITEMS = ['여권', '충전기', '선크림'];
 
+type Inputs = {
+  purpose: string;
+  transport: string;
+  activities: string[];
+  minimalPack: boolean | null;
+  exchange: boolean | null;
+};
+
+const EXCHANGE_EXTRA = ['원화', '여권', '지갑'];
+const TRANSPORT_EXTRA: Record<string, string[]> = {
+  '대중교통': ['교통카드'],
+  렌트: ['국제운전면허증'],
+};
+
+function getRecommendedItems({
+  purpose,
+  transport,
+  activities,
+  minimalPack,
+  exchange,
+}: Inputs): string[] {
+  const set = new Set<string>();
+  ['여권', '충전기'].forEach((i) => set.add(i));
+
+  if (minimalPack) {
+    ['여권', '충전기', '선크림'].forEach((i) => set.add(i));
+  } else {
+    if (purpose === '비즈니스') {
+      ['정장', '노트북', '업무 관련 서류'].forEach((i) => set.add(i));
+    } else if (purpose === '액티비티') {
+      ['트레이닝복', '모자'].forEach((i) => set.add(i));
+    } else if (purpose === '문화탐방' || purpose === '힐링') {
+      ['편한 신발', '물티슈'].forEach((i) => set.add(i));
+    } else {
+      ['여권', '충전기', '선크림'].forEach((i) => set.add(i));
+    }
+
+    activities.forEach((act) => {
+      if (act === '등산') {
+        set.add('트레이닝복');
+        set.add('모자');
+      }
+      if (act === '바다 수영') {
+        set.add('수영복');
+        set.add('수건 / 타올');
+      }
+      if (act === '맛집 탐방') {
+        set.add('물티슈');
+      }
+      if (act === '유적지 탐방') {
+        set.add('편한 신발');
+      }
+    });
+
+    if (transport && TRANSPORT_EXTRA[transport]) {
+      TRANSPORT_EXTRA[transport].forEach((i) => set.add(i));
+    }
+  }
+
+  if (exchange) {
+    EXCHANGE_EXTRA.forEach((i) => set.add(i));
+  }
+
+  return Array.from(set);
+}
+
+interface RecommendedItemsProps {
+  items: string[];
+  selected: string[];
+  onToggle: (item: string) => void;
+  title?: string;
+  compact?: boolean;
+}
+const RecommendedItems: React.FC<RecommendedItemsProps> = ({
+  items,
+  selected,
+  onToggle,
+  title = '추천 준비물',
+  compact = false,
+}) => (
+  <div className="space-y-2">
+    <div className="flex items-center justify-between mb-1">
+      <h4 className="font-semibold">{title}</h4>
+      <div className="text-sm text-gray-500">{selected.length}개 선택</div>
+    </div>
+    <div className="flex flex-wrap gap-2">
+      {items.map((it) => {
+        const active = selected.includes(it);
+        return (
+          <button
+            key={it}
+            onClick={() => onToggle(it)}
+            aria-pressed={active}
+            className={`
+              flex items-center whitespace-nowrap rounded-full text-sm font-medium transition
+              ${active
+                ? 'bg-red-500 text-white border border-red-500'
+                : 'bg-white text-gray-800 border border-gray-300 hover:bg-gray-100'}
+              px-${compact ? '2' : '3'} py-${compact ? '1' : '2'}
+            `}
+            style={{ minWidth: 80 }}
+          >
+            {it}
+          </button>
+        );
+      })}
+    </div>
+  </div>
+);
+
 export default function MakeCheckList() {
-  // 단계 관리
-    const [step, setStep] = useState<
+  const [step, setStep] = useState<
     | 'city'
     | 'date'
     | 'purpose'
@@ -40,29 +138,36 @@ export default function MakeCheckList() {
     | 'done'
   >('city');
 
-  // 대화 메시지
   const [messages, setMessages] = useState<Message[]>([
     { sender: 'bot', text: '여행할 도시를 입력해주세요.' },
   ]);
 
-  // 사용자 입력값들
-  const [city, setCity] = useState('');
-  const [departureDate, setDepartureDate] = useState<Date | undefined>(undefined);
-  const [arrivalDate, setArrivalDate] = useState<Date | undefined>(undefined);
+  const {
+    cities,
+    citiesLoading,
+    citiesError,
+    catalog,
+    catalogLoading,
+    catalogError,
+    createChecklist,
+    creating,
+    createError,
+  } = useChecklistCreator();
+
+  const [city, setCity] = useState<{ cityId: number; cityName: string } | null>(null);
+  const [departureDate, setDepartureDate] = useState<Date | undefined>();
+  const [arrivalDate, setArrivalDate] = useState<Date | undefined>();
   const [purpose, setPurpose] = useState('');
   const [jpType, setJpType] = useState<'J' | 'P' | ''>('');
   const [transport, setTransport] = useState('');
   const [activities, setActivities] = useState<string[]>([]);
   const [minimalPack, setMinimalPack] = useState<boolean | null>(null);
   const [exchange, setExchange] = useState<boolean | null>(null);
+
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
   const [customItem, setCustomItem] = useState('');
   const [customItems, setCustomItems] = useState<string[]>([]);
 
-  const addMsg = (msg: Message) =>
-    setMessages((prev) => [...prev, msg]);
-
-  // Chat 완료 후 에디터로 전환
   const [showEditor, setShowEditor] = useState(false);
   const [editorData, setEditorData] = useState<{
     title: string;
@@ -71,25 +176,23 @@ export default function MakeCheckList() {
     items: Omit<Item, 'id' | 'checked'>[];
   } | null>(null);
 
-  // 1) 도시 입력 완료
-  const submitCity = () => {
-    if (!city.trim()) return;
-    addMsg({ sender: 'user', text: city });
+  const addMsg = (msg: Message) => setMessages((prev) => [...prev, msg]);
+
+  // flows
+  const selectCity = (c: { cityId: number; cityName: string }) => {
+    setCity(c);
+    addMsg({ sender: 'user', text: c.cityName });
     addMsg({ sender: 'bot', text: '출발일과 도착일을 선택해주세요.' });
     setStep('date');
   };
 
-  // 2) 출발일 선택
   const handleDepartureSelect = (d: Date | undefined) => {
     if (!d) return;
     setDepartureDate(d);
   };
-
-  // 3) 도착일 선택 → 둘 다 있으면 메시지 추가 및 다음 단계
-    const handleArrivalSelect = (d: Date | undefined) => {
+  const handleArrivalSelect = (d: Date | undefined) => {
     if (!d || !departureDate) return;
     setArrivalDate(d);
-    // formatYMD 함수 사용하여 로컬 기준 날짜 포맷
     const from = formatYMD(departureDate);
     const to = formatYMD(d);
     addMsg({ sender: 'user', text: `${from} ~ ${to}` });
@@ -97,18 +200,12 @@ export default function MakeCheckList() {
     setStep('purpose');
   };
 
-  // 4) 목적 선택
   const selectPurpose = (opt: string) => {
     setPurpose(opt);
     addMsg({ sender: 'user', text: opt });
-    addMsg({
-      sender: 'bot',
-      text: '판단 유형을 선택해주세요: J(직접 입력) / P(추천)',
-    });
+    addMsg({ sender: 'bot', text: '판단 유형을 선택해주세요: J(직접 입력) / P(추천)' });
     setStep('jp');
   };
-
-  // 5) J/P 선택
   const selectJp = (t: 'J' | 'P') => {
     setJpType(t);
     addMsg({ sender: 'user', text: t });
@@ -120,8 +217,36 @@ export default function MakeCheckList() {
       setStep('transport');
     }
   };
+  const selectTransport = (opt: string) => {
+    setTransport(opt);
+    addMsg({ sender: 'user', text: opt });
+    addMsg({ sender: 'bot', text: '원하는 활동을 선택해주세요.' });
+    setStep('activities');
+  };
+  const toggleActivity = (act: string) => {
+    setActivities((prev) =>
+      prev.includes(act) ? prev.filter((x) => x !== act) : [...prev, act]
+    );
+  };
+  const finishActivities = () => {
+    addMsg({ sender: 'user', text: activities.length ? activities.join(', ') : '없음' });
+    addMsg({ sender: 'bot', text: '짐을 최소화하시겠습니까?' });
+    setStep('minimal');
+  };
+  const selectMinimal = (yes: boolean) => {
+    setMinimalPack(yes);
+    addMsg({ sender: 'user', text: yes ? '예 (미니멀)' : '아니요' });
+    addMsg({ sender: 'bot', text: '환전이 필요하신가요?' });
+    setStep('exchange');
+  };
+  const selectExchange = (yes: boolean) => {
+    setExchange(yes);
+    addMsg({ sender: 'user', text: yes ? '예' : '아니요' });
+    addMsg({ sender: 'bot', text: '추천 준비물을 선택해주세요.' });
+    setStep('items');
+  };
 
-  // J일 경우: 직접 입력
+  // J custom
   const addCustom = () => {
     if (!customItem.trim()) return;
     setCustomItems((prev) => [...prev, customItem.trim()]);
@@ -135,47 +260,26 @@ export default function MakeCheckList() {
     goToEditor();
   };
 
-  // P일 경우: 교통수단 선택
-  const selectTransport = (opt: string) => {
-    setTransport(opt);
-    addMsg({ sender: 'user', text: opt });
-    addMsg({ sender: 'bot', text: '원하는 활동을 선택해주세요.' });
-    setStep('activities');
-  };
+  // auto recommend
+  useEffect(() => {
+    const isPDone =
+      purpose &&
+      transport &&
+      activities !== undefined &&
+      minimalPack !== null &&
+      exchange !== null;
+    if ((step === 'items' || step === 'exchange') && jpType === 'P' && isPDone) {
+      const recs = getRecommendedItems({
+        purpose,
+        transport,
+        activities,
+        minimalPack,
+        exchange,
+      });
+      setSelectedItems(recs);
+    }
+  }, [purpose, transport, activities, minimalPack, exchange, step, jpType]);
 
-  // P: 활동 선택
-  const toggleActivity = (act: string) => {
-    setActivities((prev) =>
-      prev.includes(act) ? prev.filter((x) => x !== act) : [...prev, act]
-    );
-  };
-  const finishActivities = () => {
-    addMsg({
-      sender: 'user',
-      text: activities.length ? activities.join(', ') : '없음',
-    });
-    addMsg({ sender: 'bot', text: '짐을 최소화하시겠습니까?' });
-    setStep('minimal');
-  };
-
-  // P: 짐 최소화
-  const selectMinimal = (yes: boolean) => {
-    setMinimalPack(yes);
-    addMsg({ sender: 'user', text: yes ? '예 (미니멀)' : '아니요' });
-    addMsg({ sender: 'bot', text: '환전이 필요하신가요?' });
-    setStep('exchange');
-  };
-
-  // P: 환전 여부
-  const selectExchange = (yes: boolean) => {
-    setExchange(yes);
-    addMsg({ sender: 'user', text: yes ? '예' : '아니요' });
-    addMsg({ sender: 'bot', text: '추천 준비물을 선택해주세요.' });
-    setStep('items');
-  };
-
-  // P: 추천 준비물 선택
-  const suggestions = minimalPack ? MINIMAL_ITEMS : DEFAULT_ITEMS;
   const toggleItem = (it: string) => {
     setSelectedItems((prev) =>
       prev.includes(it) ? prev.filter((x) => x !== it) : [...prev, it]
@@ -189,9 +293,7 @@ export default function MakeCheckList() {
     goToEditor();
   };
 
-  // Chat → Editor 전환
- const formatYMD = (date: Date) => {
-    // 로컬 기준 YYYY-MM-DD 포맷
+  const formatYMD = (date: Date) => {
     const y = date.getFullYear();
     const m = String(date.getMonth() + 1).padStart(2, '0');
     const d = String(date.getDate()).padStart(2, '0');
@@ -199,8 +301,7 @@ export default function MakeCheckList() {
   };
 
   const goToEditor = () => {
-    const title = `${city} ${purpose}`;
-    // timezone 이슈를 방지하기 위해 getFullYear 등 사용
+    const title = `${city?.cityName || ''} ${purpose}`;
     const startDate = formatYMD(departureDate!);
     const endDate = formatYMD(arrivalDate!);
     const items =
@@ -211,7 +312,48 @@ export default function MakeCheckList() {
     setShowEditor(true);
   };
 
-
+  const handleSave = useCallback(
+    async (data: { title: string; startDate: string; endDate: string; items: Item[] }) => {
+      try {
+        if (!city) throw new Error('도시를 선택해주세요.');
+        if (catalogLoading) {
+          alert('준비물이 로딩 중입니다. 잠시만 기다려주세요.');
+          return;
+        }
+        const jwt = localStorage.getItem('jwt') || '';
+        const userId = 1; // 실제 로그인 유저 ID
+        await createChecklist({
+          jwt,
+          userId,
+          cityId: city.cityId,
+          title: data.title,
+          purpose,
+          travelStart: data.startDate,
+          travelEnd: data.endDate,
+          itemsTextList: data.items.map((it) => it.text),
+        });
+        alert('체크리스트 생성 완료');
+        // 초기화
+        setShowEditor(false);
+        setStep('city');
+        setPurpose('');
+        setJpType('');
+        setTransport('');
+        setActivities([]);
+        setMinimalPack(null);
+        setExchange(null);
+        setSelectedItems([]);
+        setCustomItems([]);
+        setCity(null);
+        setDepartureDate(undefined);
+        setArrivalDate(undefined);
+        setMessages([{ sender: 'bot', text: '여행할 도시를 입력해주세요.' }]);
+      } catch (e: any) {
+        alert('생성 실패: ' + e.message);
+      }
+    },
+    [city, purpose, createChecklist, catalogLoading]
+  );
 
   if (showEditor && editorData) {
     return (
@@ -220,245 +362,251 @@ export default function MakeCheckList() {
         initialStartDate={editorData.startDate}
         initialEndDate={editorData.endDate}
         initialItems={editorData.items}
-        onSave={(data) => {
-          console.log('최종 저장된 데이터', data);
-          setShowEditor(false);
-          setStep('city');
-        }}
+        onSave={handleSave}
       />
     );
   }
 
+  const minimalSuggestions = minimalPack ? MINIMAL_ITEMS : [];
+
   return (
-    <div className='max-w-[1320px] mx-auto'>
-      <h3 className ="text-3xl font-bold text-center ml-[-130px] my-10" >체크리스트 만들기 </h3>
-    <div className="w-[1000px] mx-auto p-6 bg-white rounded-xl shadow-lg">
-      {/* 챗 버블 */}
-      <div className="space-y-4 mb-6">
-        {messages.map((m, i) => (
-          <div
-            key={i}
-            className={`flex ${m.sender === 'bot' ? 'justify-start' : 'justify-end'}`}
-          >
+    <div className="max-w-[1320px] mx-auto">
+      <h3 className="text-3xl font-bold text-center ml-[-130px] my-10">
+        체크리스트 만들기
+      </h3>
+      <div className="w-[1000px] mx-auto p-6 bg-white rounded-xl shadow-lg">
+        {/* 메시지 */}
+        <div className="space-y-4 mb-6">
+          {messages.map((m, i) => (
             <div
-              className={`px-4 py-2 rounded-lg whitespace-pre-wrap ${
-                m.sender === 'bot' ? 'bg-gray-100 text-gray-800' : 'bg-red-500 text-white'
-              }`}
+              key={i}
+              className={`flex ${m.sender === 'bot' ? 'justify-start' : 'justify-end'}`}
             >
-              {m.text}
+              <div
+                className={`px-4 py-2 rounded-lg whitespace-pre-wrap ${
+                  m.sender === 'bot' ? 'bg-gray-100 text-gray-800' : 'bg-red-500 text-white'
+                }`}
+              >
+                {m.text}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* city */}
+        {step === 'city' && (
+          <div className="flex flex-col gap-4">
+            {citiesLoading ? (
+              <div className="text-sm text-gray-600">도시 불러오는 중...</div>
+            ) : citiesError ? (
+              <div className="text-sm text-red-500">
+                {citiesError}{' '}
+                <button onClick={() => window.location.reload()}>다시 시도</button>
+              </div>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {cities.map((c) => (
+                  <button
+                    key={c.cityId}
+                    onClick={() => selectCity(c)}
+                    aria-pressed={city?.cityId === c.cityId}
+                    className={`px-4 py-2 rounded-full text-sm font-medium transition ${
+                      city?.cityId === c.cityId
+                        ? 'bg-red-500 text-white shadow'
+                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                    }`}
+                  >
+                    {c.cityName}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* date */}
+        {step === 'date' && (
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <p className="mb-2 font-medium">출발일</p>
+              <DayPicker mode="single" selected={departureDate} onSelect={handleDepartureSelect} />
+            </div>
+            <div>
+              <p className="mb-2 font-medium">도착일</p>
+              <DayPicker mode="single" selected={arrivalDate} onSelect={handleArrivalSelect} />
             </div>
           </div>
-        ))}
-      </div>
+        )}
 
-      {/* 인터랙션 */}
-     {step === 'city' && (
-  <div className="flex flex-col gap-4">
-    <div className="flex flex-wrap gap-2">
-      {CITIES.map((c) => (
-        <button
-          key={c}
-          onClick={() => {
-            setCity(c);
-            addMsg({ sender: 'user', text: c });
-            addMsg({ sender: 'bot', text: '출발일과 도착일을 선택해주세요.' });
-            setStep('date');
-          }}
-          aria-pressed={city === c}
-          className={`
-            px-4 py-2 rounded-full text-sm font-medium transition
-            ${city === c
-              ? 'bg-red-500 text-white shadow'
-              : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}
-          `}
-        >
-          {c}
-        </button>
-      ))}
-    </div>
-    {city && (
-      <div className="text-sm text-gray-600">
-        선택된 도시: <span className="font-semibold">{city}</span>
-      </div>
-    )}
-  </div>
-)}
-
-      {step === 'date' && (
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <p className="mb-2 font-medium">출발일</p>
-            <DayPicker
-              mode="single"
-              selected={departureDate}
-              onSelect={handleDepartureSelect}
-            />
-          </div>
-          <div>
-            <p className="mb-2 font-medium">도착일</p>
-            <DayPicker
-              mode="single"
-              selected={arrivalDate}
-              onSelect={handleArrivalSelect}
-            />
-          </div>
-        </div>
-      )}
-
-      {step === 'purpose' && (
-        <div className="flex gap-2 flex-wrap">
-          {PURPOSE_OPTIONS.map((opt) => (
-            <button
-              key={opt}
-              onClick={() => selectPurpose(opt)}
-              className={`px-4 py-2 rounded-full border ${
-                purpose === opt ? 'bg-red-500 text-white border-red-500' : 'bg-white text-gray-800 border-gray-300'
-              }`}
-            >
-              {opt}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {step === 'jp' && (
-        <div className="flex gap-2">
-          <button onClick={() => selectJp('J')} className="px-6 py-2 rounded-full bg-gray-800 text-white">
-            J
-          </button>
-          <button onClick={() => selectJp('P')} className="px-6 py-2 rounded-full bg-red-500 text-white">
-            P
-          </button>
-        </div>
-      )}
-
-      {step === 'jp-custom' && (
-        <>
-          <div className="flex gap-2 mb-4">
-            <input
-              type="text"
-              value={customItem}
-              onChange={(e) => setCustomItem(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && addCustom()}
-              className="flex-1 border rounded px-3 py-2 focus:outline-none"
-              placeholder="직접 입력할 준비물"
-            />
-            <button onClick={addCustom} className="bg-red-500 text-white px-4 py-2 rounded">
-              추가
-            </button>
-          </div>
-          <button onClick={finishCustom} className="ml-auto bg-red-500 text-white px-6 py-2 rounded-full">
-            완료
-          </button>
-        </>
-      )}
-
-      {step === 'transport' && (
-        <div className="flex gap-2">
-          {TRANSPORT_OPTIONS.map((opt) => (
-            <button
-              key={opt}
-              onClick={() => selectTransport(opt)}
-              className={`px-4 py-2 rounded-full border ${
-                transport === opt ? 'bg-red-500 text-white border-red-500' : 'bg-white text-gray-800 border-gray-300'
-              }`}
-            >
-              {opt}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {step === 'activities' && (
-        <>
-          <div className="flex flex-wrap gap-2 mb-4">
-            {ACTIVITY_OPTIONS.map((act) => (
+        {/* purpose */}
+        {step === 'purpose' && (
+          <div className="flex gap-2 flex-wrap">
+            {PURPOSE_OPTIONS.map((opt) => (
               <button
-                key={act}
-                onClick={() => toggleActivity(act)}
-                className={`px-3 py-1 rounded-full border ${
-                  activities.includes(act) ? 'bg-red-500 text-white border-red-500' : 'bg-white text-gray-800 border-gray-300'
+                key={opt}
+                onClick={() => selectPurpose(opt)}
+                className={`px-4 py-2 rounded-full border ${
+                  purpose === opt
+                    ? 'bg-red-500 text-white border-red-500'
+                    : 'bg-white text-gray-800 border-gray-300'
                 }`}
               >
-                {act}
+                {opt}
               </button>
             ))}
           </div>
-          <button onClick={finishActivities} className="ml-auto bg-red-500 text-white px-6 py-2 rounded-full">
-            다음
-          </button>
-        </>
-      )}
+        )}
 
-      {step === 'minimal' && (
-        <div className="flex gap-2">
-          <button onClick={() => selectMinimal(true)} className="px-4 py-2 rounded-full bg-red-500 text-white">
-            예
-          </button>
-          <button onClick={() => selectMinimal(false)} className="px-4 py-2 rounded-full bg-gray-300 text-gray-800">
-            아니요
-          </button>
-        </div>
-      )}
-
-      {step === 'exchange' && (
-        <div className="flex gap-2">
-          <button onClick={() => selectExchange(true)} className="px-4 py-2 rounded-full bg-red-500 text-white">
-            예
-          </button>
-          <button onClick={() => selectExchange(false)} className="px-4 py-2 rounded-full bg-gray-300 text-gray-800">
-            아니요
-          </button>
-        </div>
-      )}
-
-      {step === 'items' && (
-        <>
-          <div className="flex flex-wrap gap-2 mb-4">
-            {suggestions.map((it) => (
-              <button
-                key={it}
-                onClick={() => toggleItem(it)}
-                className={`px-3 py-1 rounded-full border ${
-                  selectedItems.includes(it) ? 'bg-red-500 text-white border-red-500' : 'bg-white text-gray-800 border-gray-300'
-                }`}
-              >
-                {it}
-              </button>
-            ))}
+        {/* jp */}
+        {step === 'jp' && (
+          <div className="flex gap-2">
+            <button onClick={() => selectJp('J')} className="px-6 py-2 rounded-full bg-gray-800 text-white">
+              J
+            </button>
+            <button onClick={() => selectJp('P')} className="px-6 py-2 rounded-full bg-red-500 text-white">
+              P
+            </button>
           </div>
-          <button onClick={finishItems} className="ml-auto bg-red-500 text-white px-6 py-2 rounded-full">
-            완료
-          </button>
-        </>
-      )}
+        )}
 
-      {step === 'done' && (
-        <div className="space-y-4">
-          <table className="w-full table-auto border-collapse">
-            <thead>
-              <tr>
-                <th className="border px-4 py-2 text-left">준비물</th>
-                <th className="border px-4 py-2 text-center">완료</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(jpType === 'J' ? customItems : selectedItems).map((it) => (
-                <tr key={it}>
-                  <td className="border px-4 py-2">{it}</td>
-                  <td className="border px-4 py-2 text-center">
-                    <input type="checkbox" />
-                  </td>
-                </tr>
+        {/* jp-custom */}
+        {step === 'jp-custom' && (
+          <>
+            <div className="flex gap-2 mb-4">
+              <input
+                type="text"
+                value={customItem}
+                onChange={(e) => setCustomItem(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && addCustom()}
+                className="flex-1 border rounded px-3 py-2 focus:outline-none"
+                placeholder="직접 입력할 준비물"
+              />
+              <button onClick={addCustom} className="bg-red-500 text-white px-4 py-2 rounded">
+                추가
+              </button>
+            </div>
+            <div className="flex flex-wrap gap-2 mb-2">
+              {customItems.map((it) => (
+                <div key={it} className="px-3 py-1 bg-gray-100 rounded-full flex items-center gap-2 text-sm">
+                  {it}
+                  <button onClick={() => setCustomItems((p) => p.filter((x) => x !== it))}>✕</button>
+                </div>
               ))}
-            </tbody>
-          </table>
-          <button className="mt-6 float-right bg-red-500 text-white px-8 py-3 rounded-full">
-            저장하기
-          </button>
-        </div>
-      )}
-    </div>
+            </div>
+            <button onClick={finishCustom} className="ml-auto bg-red-500 text-white px-6 py-2 rounded-full">
+              완료
+            </button>
+          </>
+        )}
+
+        {/* transport */}
+        {step === 'transport' && (
+          <div className="flex gap-2">
+            {TRANSPORT_OPTIONS.map((opt) => (
+              <button
+                key={opt}
+                onClick={() => selectTransport(opt)}
+                className={`px-4 py-2 rounded-full border ${
+                  transport === opt
+                    ? 'bg-red-500 text-white border-red-500'
+                    : 'bg-white text-gray-800 border-gray-300'
+                }`}
+              >
+                {opt}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* activities */}
+        {step === 'activities' && (
+          <>
+            <div className="flex flex-wrap gap-2 mb-4">
+              {ACTIVITY_OPTIONS.map((act) => (
+                <button
+                  key={act}
+                  onClick={() => toggleActivity(act)}
+                  className={`px-3 py-1 rounded-full border ${
+                    activities.includes(act)
+                      ? 'bg-red-500 text-white border-red-500'
+                      : 'bg-white text-gray-800 border-gray-300'
+                  }`}
+                >
+                  {act}
+                </button>
+              ))}
+            </div>
+            <button onClick={finishActivities} className="ml-auto bg-red-500 text-white px-6 py-2 rounded-full">
+              다음
+            </button>
+          </>
+        )}
+
+        {/* minimal */}
+        {step === 'minimal' && (
+          <div className="flex gap-2">
+            <button onClick={() => selectMinimal(true)} className="px-4 py-2 rounded-full bg-red-500 text-white">
+              예
+            </button>
+            <button onClick={() => selectMinimal(false)} className="px-4 py-2 rounded-full bg-gray-300 text-gray-800">
+              아니요
+            </button>
+          </div>
+        )}
+
+        {/* exchange */}
+        {step === 'exchange' && (
+          <div className="flex gap-2">
+            <button onClick={() => selectExchange(true)} className="px-4 py-2 rounded-full bg-red-500 text-white">
+              예
+            </button>
+            <button onClick={() => selectExchange(false)} className="px-4 py-2 rounded-full bg-gray-300 text-gray-800">
+              아니요
+            </button>
+          </div>
+        )}
+
+        {/* items */}
+        {step === 'items' && (
+          <>
+            <div className="mb-4">
+              <RecommendedItems
+                title="자동 추천된 준비물"
+                items={getRecommendedItems({
+                  purpose,
+                  transport,
+                  activities,
+                  minimalPack,
+                  exchange,
+                })}
+                selected={selectedItems}
+                onToggle={toggleItem}
+              />
+              {minimalSuggestions.length > 0 && (
+                <div className="mt-2">
+                  <RecommendedItems
+                    title="미니멀 핵심"
+                    items={minimalSuggestions}
+                    selected={selectedItems}
+                    onToggle={toggleItem}
+                    compact
+                  />
+                </div>
+              )}
+            </div>
+            <div className="flex justify-end">
+              <button
+                onClick={finishItems}
+                disabled={creating}
+                className="bg-red-500 text-white px-6 py-2 rounded-full"
+              >
+                {creating ? '생성 중...' : '완료'}
+              </button>
+            </div>
+            {createError && <div className="text-red-500 mt-2">{createError.message}</div>}
+          </>
+        )}
+      </div>
     </div>
   );
 }
