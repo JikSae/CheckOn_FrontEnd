@@ -36,7 +36,7 @@ export default function App() {
         <Route path="/profile-edit" element={<ProfileEdit />} />
         <Route path="/review" element={<Review />} />
         <Route path="/record" element={<Record />} />
-        <Route path="/reviewDetail" element={<ReviewDetail />} />
+        <Route path="/review/:id" element={<ReviewDetail />} />
         <Route path="/checkListReview" element={<CheckListWrapper />} />
         <Route path="*" element={<NotFound />} />
       </Routes>

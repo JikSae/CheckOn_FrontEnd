@@ -16,27 +16,8 @@ const Information = () => {
          <JapanNoticeCard />
       </section>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12 ">
-        {/* 환율 */}
-        <div className="flex flex-col items-center ">
-          <h3 className="text-md font-semibold mb-2">환율</h3>
-          <div className="w-full  rounded-lg p-6 flex justify-center items-center h-full">
-             <ExchangeRate />
-          </div>
-        </div>
-
-        {/* 날씨 위젯 (예시) */}
-        <div className="flex flex-col items-center">
-          <h3 className="text-md font-semibold mb-2">날씨</h3>
-          <div className="w-full  rounded-lg  shadow-lg p-4 ">
-          
-            <WeatherCard />
-          </div>
-        </div>
-      </div>
-
-      {/* 여행 정보 링크 */}
-      <section>
+            {/* 여행 정보 링크 */}
+            <section>
         <h2 className="text-lg font-semibold mb-4">일본 여행 정보 사이트</h2>
         <ul className="space-y-2">
           <li>
@@ -61,6 +42,27 @@ const Information = () => {
           </li>
         </ul>
       </section>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12 ">
+        {/* 환율 */}
+        <div className="flex flex-col items-center ">
+          <h3 className="text-md font-semibold mb-2">환율</h3>
+          <div className="w-full  rounded-lg p-6 flex justify-center items-center h-full">
+             <ExchangeRate />
+          </div>
+        </div>
+
+        {/* 날씨 위젯 (예시) */}
+        <div className="flex flex-col items-center">
+          <h3 className="text-md font-semibold mb-2">날씨</h3>
+          <div className="w-full  rounded-lg  shadow-lg p-4 ">
+          
+            <WeatherCard />
+          </div>
+        </div>
+      </div>
+
+
     </div>
   );
 };

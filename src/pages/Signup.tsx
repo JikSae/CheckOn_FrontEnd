@@ -1,12 +1,25 @@
 import React, { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 
-// 환경 변수로 API 주소 관리 (기본값은 localhost:4000)
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:4000";
+
+interface FormState {
+  email: string;
+  password: string;
+  confirmPassword: string;
+  nickname: string;
+  birthYear: string;
+  birthMonth: string;
+  birthDay: string;
+  gender: string;
+  profilePhoto: string;
+}
 
 export default function Signup() {
   const navigate = useNavigate();
-  const [form, setForm] = useState({
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [form, setForm] = useState<FormState>({
     email: "",
     password: "",
     confirmPassword: "",
@@ -14,13 +27,12 @@ export default function Signup() {
     birthYear: "",
     birthMonth: "",
     birthDay: "",
-    gender: "",
-    profileImage: "",
+    gender: "NONSPECIFIED",
+    profilePhoto: "",
   });
-  const [error, setError] = useState<string>("");
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [error, setError] = useState("");
 
-  // ─── 입력값 변경 핸들러 ───
+  // 텍스트/셀렉트 입력 변경
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
@@ -29,124 +41,189 @@ export default function Signup() {
     setError("");
   };
 
-  // ─── 이미지 업로드 ───
+  // 파일 선택 시 Base64로 변환해서 상태 저장
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setForm((prev) => ({
-          ...prev,
-          profileImage: reader.result as string,
-        }));
-      };
-      reader.readAsDataURL(file);
-    }
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setForm((prev) => ({
+        ...prev,
+        profilePhoto: reader.result as string,
+      }));
+    };
+    reader.readAsDataURL(file);
   };
 
-  // ─── 회원가입 요청 ───
-  const handleSignup = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // 제출 핸들러
+// ── Signup.tsx ──
+const handleSignup = async (e: React.FormEvent) => {
+  e.preventDefault();
+  if (form.password !== form.confirmPassword) {
+    setError("비밀번호가 일치하지 않습니다.");
+    return;
+  }
+  if (
+    !form.email ||
+    !form.password ||
+    !form.nickname ||
+    !form.birthYear ||
+    !form.birthMonth ||
+    !form.birthDay
+  ) {
+    setError("모든 항목을 입력해주세요.");
+    return;
+  }
 
-    // 비밀번호 일치 확인
-    if (form.password !== form.confirmPassword) {
-      setError("비밀번호가 일치하지 않습니다.");
+  // 1) 프로필 이미지는 잠시 제외하고, JSON body 로만 전송
+  const payload = {
+    email: form.email,
+    password: form.password,
+    nickname: form.nickname,
+    birthDate: `${form.birthYear}-${form.birthMonth.padStart(2, "0")}-${form.birthDay.padStart(2, "0")}`,
+    gender: form.gender,
+    authority: "USER",
+    // profilePhoto: form.profilePhoto,  // ← 이 줄은 주석 처리
+  };
+
+  try {
+    const res = await fetch(`${API_URL}/auth/sign-up`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const errorJson = await res.json();
+      console.error("Signup failed:", errorJson);
+      setError(errorJson.message || "회원가입에 실패했습니다.");
       return;
     }
 
-    // 필수 입력 확인
-    if (
-      !form.email ||
-      !form.password ||
-      !form.nickname ||
-      !form.birthYear ||
-      !form.birthMonth ||
-      !form.birthDay
-    ) {
-      setError("모든 항목을 입력해주세요.");
-      return;
-    }
+    alert("회원가입 성공! 로그인 페이지로 이동합니다.");
+    navigate("/login");
+  } catch (err) {
+    console.error("Signup error:", err);
+    setError("서버 연결에 실패했습니다.");
+  }
+};
 
-    try {
-      const res = await fetch(`${API_URL}/auth/signup`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: form.email,
-          password: form.password,
-          nickname: form.nickname,
-          birthdate: `${form.birthYear}-${form.birthMonth.padStart(2, "0")}-${form.birthDay.padStart(2, "0")}`,
-          gender: form.gender,
-          profileImage: form.profileImage,
-        }),
-      });
-
-      const data = await res.json();
-      if (res.ok) {
-        alert("회원가입 성공! 로그인 페이지로 이동합니다.");
-        navigate("/login");
-      } else {
-        setError(data.message || "회원가입에 실패했습니다.");
-      }
-    } catch (err) {
-      console.error("Signup error:", err);
-      setError("서버 연결에 실패했습니다.");
-    }
-  };
 
   return (
-    <div className="min-h-screen flex flex-col items-center pt-12 bg-gray-100 text-gray-800">
+    <div className="min-h-screen flex items-center justify-center bg-gray-100">
       <form
         onSubmit={handleSignup}
-        className="w-full max-w-2xl p-8 bg-white rounded-xl shadow-lg space-y-6"
+        className="w-full max-w-md bg-white p-8 rounded shadow"
       >
-        <h1 className="text-3xl font-bold text-center">회원가입</h1>
+        <h2 className="text-2xl font-bold mb-6 text-center">회원가입</h2>
 
-        {/* ─── 프로필 이미지 업로드 ─── */}
-        <div className="flex justify-center">
+        {/* 프로필 이미지 */}
+        <div className="flex justify-center mb-4">
           <div
             onClick={() => fileInputRef.current?.click()}
             className="cursor-pointer"
           >
             <img
-              src={form.profileImage || "https://cdn-icons-png.flaticon.com/512/847/847969.png"}
+              src={
+                form.profilePhoto ||
+                "https://cdn-icons-png.flaticon.com/512/847/847969.png"
+              }
               alt="profile"
-              className="w-24 h-24 rounded-full border-2 object-cover"
+              className="w-20 h-20 rounded-full border-2 object-cover"
             />
           </div>
           <input
             type="file"
             accept="image/*"
-            onChange={handleImageChange}
             ref={fileInputRef}
+            onChange={handleImageChange}
             className="hidden"
           />
         </div>
 
-        {/* ─── 입력 필드 ─── */}
-        <Input label="아이디(이메일)" name="email" type="email" value={form.email} onChange={handleChange} />
-        <Input label="비밀번호" name="password" type="password" value={form.password} onChange={handleChange} />
-        <Input label="비밀번호 확인" name="confirmPassword" type="password" value={form.confirmPassword} onChange={handleChange} />
-        <Input label="닉네임" name="nickname" value={form.nickname} onChange={handleChange} />
+        {/* 이메일 */}
+        <div className="mb-4">
+          <label htmlFor="email" className="block mb-1">
+            이메일
+          </label>
+          <input
+            id="email"
+            name="email"
+            type="email"
+            value={form.email}
+            onChange={handleChange}
+            className="w-full p-2 border rounded"
+            required
+          />
+        </div>
 
-        {/* ─── 생년월일 ─── */}
-        <div>
-          <label className="block mb-2 text-lg">생년월일</label>
-          <div className="flex gap-3">
-            {["birthYear", "birthMonth", "birthDay"].map((field, i) => (
+        {/* 비밀번호 */}
+        <div className="mb-4">
+          <label htmlFor="password" className="block mb-1">
+            비밀번호
+          </label>
+          <input
+            id="password"
+            name="password"
+            type="password"
+            value={form.password}
+            onChange={handleChange}
+            className="w-full p-2 border rounded"
+            required
+          />
+        </div>
+
+        {/* 비밀번호 확인 */}
+        <div className="mb-4">
+          <label htmlFor="confirmPassword" className="block mb-1">
+            비밀번호 확인
+          </label>
+          <input
+            id="confirmPassword"
+            name="confirmPassword"
+            type="password"
+            value={form.confirmPassword}
+            onChange={handleChange}
+            className="w-full p-2 border rounded"
+            required
+          />
+        </div>
+
+        {/* 닉네임 */}
+        <div className="mb-4">
+          <label htmlFor="nickname" className="block mb-1">
+            닉네임
+          </label>
+          <input
+            id="nickname"
+            name="nickname"
+            type="text"
+            value={form.nickname}
+            onChange={handleChange}
+            className="w-full p-2 border rounded"
+            required
+          />
+        </div>
+
+        {/* 생년월일 */}
+        <div className="mb-4">
+          <label className="block mb-1">생년월일</label>
+          <div className="flex gap-2">
+            {["birthYear", "birthMonth", "birthDay"].map((field, idx) => (
               <select
                 key={field}
                 name={field}
-                value={form[field as keyof typeof form]}
+                value={(form as any)[field]}
                 onChange={handleChange}
+                className="flex-1 p-2 border rounded"
                 required
-                className="w-1/3 px-4 py-2 bg-gray-200 rounded-lg"
               >
-                <option value="">{["년", "월", "일"][i]}</option>
+                <option value="">
+                  {idx === 0 ? "년" : idx === 1 ? "월" : "일"}
+                </option>
                 {Array.from({
-                  length: i === 0 ? 100 : i === 1 ? 12 : 31,
-                }).map((_, idx) => {
-                  const val = i === 0 ? 2025 - idx : idx + 1;
+                  length: idx === 0 ? 100 : idx === 1 ? 12 : 31,
+                }).map((_, i) => {
+                  const val = idx === 0 ? 2025 - i : i + 1;
                   return (
                     <option key={val} value={String(val)}>
                       {val}
@@ -158,61 +235,38 @@ export default function Signup() {
           </div>
         </div>
 
-        {/* ─── 성별 선택 ─── */}
-        <div>
-          <label className="block mb-2 text-lg">성별 (선택)</label>
-          <div className="flex gap-6">
-            {["남자", "여자", "선택 안함"].map((g) => (
-              <label key={g} className="flex items-center gap-2">
+        {/* 성별 */}
+        <div className="mb-4">
+          <label className="block mb-1">성별</label>
+          <div className="flex gap-4">
+            {[
+              { label: "남자", value: "MALE" },
+              { label: "여자", value: "FEMALE" },
+              { label: "선택 안함", value: "NONSPECIFIED" },
+            ].map((opt) => (
+              <label key={opt.value} className="flex items-center gap-1">
                 <input
                   type="radio"
                   name="gender"
-                  value={g}
-                  checked={form.gender === g}
+                  value={opt.value}
+                  checked={form.gender === opt.value}
                   onChange={handleChange}
                 />
-                {g}
+                {opt.label}
               </label>
             ))}
           </div>
         </div>
 
-        {/* ─── 에러 메시지 ─── */}
-        {error && <p className="text-red-500">{error}</p>}
+        {error && <p className="text-red-500 mb-4">{error}</p>}
 
-        {/* ─── 제출 버튼 ─── */}
         <button
           type="submit"
-          className="w-full py-3 bg-blue-500 text-white rounded-lg font-bold hover:bg-blue-600"
+          className="w-full py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
         >
           가입하기
         </button>
       </form>
-    </div>
-  );
-}
-// ─── 재사용 Input 컴포넌트 ───
-type InputProps = {
-  label: string;
-  name: string;
-  type?: string;
-  value: string;
-  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
-};
-
-function Input({ label, name, type = "text", value, onChange }: InputProps) {
-  return (
-    <div>
-      <label htmlFor={name} className="block mb-1 text-lg">{label}</label>
-      <input
-        id={name}
-        name={name}
-        type={type}
-        value={value}
-        onChange={onChange}
-        required
-        className="w-full px-4 py-2 bg-gray-200 rounded-lg text-lg"
-      />
     </div>
   );
 }
