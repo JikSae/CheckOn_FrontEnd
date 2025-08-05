@@ -43,32 +43,18 @@ export function MyReviews() {
 
   useEffect(() => {
     const fetchReviews = async () => {
+      setLoading(true);
       try {
-        setLoading(true);
-        const token = localStorage.getItem('jwt') || '';
-        const res = await axios.get('http://localhost:4000/my/items-reviews', {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-
-        // 구조 다양성 허용
-        let payload: any = res.data;
-        if (payload.reviews && Array.isArray(payload.reviews)) {
-          payload = payload.reviews;
-        }
-
-        if (!Array.isArray(payload)) {
-          console.warn('예상한 배열 구조가 아님:', res.data);
-          setData([]);
-        } else {
-          setData(payload);
-        }
+        // withCredentials: true 로 HttpOnly 쿠키 자동 포함
+          const res = await axios.get<{ reviews: ReviewItem[] }>(
+          '/my/items-reviews',
+          { withCredentials: true }
+        );
+        setData(res.data.reviews);
+        setError(null);
       } catch (e: any) {
         console.error('fetchReviews 에러', e);
-        setError(
-          e.response?.data?.message || '불러오는 중 오류가 발생했습니다.'
-        );
+        setError(e.response?.data?.message || '불러오는 중 오류가 발생했습니다.');
       } finally {
         setLoading(false);
       }
@@ -78,15 +64,15 @@ export function MyReviews() {
   }, []);
 
   if (loading)
-    return (
-      <div className="py-6 text-center text-sm">불러오는 중...</div>
-    );
+    return <div className="py-6 text-center text-sm">불러오는 중...</div>;
+
   if (error)
     return (
       <div className="py-6 text-center text-sm text-red-500">
         에러: {error}
       </div>
     );
+
   if (data.length === 0)
     return (
       <div className="py-6 text-center text-sm">
@@ -98,12 +84,12 @@ export function MyReviews() {
     <div className="overflow-x-auto">
       <table className="w-full table-fixed border-collapse text-left text-[12px]">
         <colgroup>
-          <col style={{ width: '30%' }} />
-          <col style={{ width: '15%' }} />
-          <col style={{ width: '20%' }} />
-          <col style={{ width: '15%' }} />
-          <col style={{ width: '10%' }} />
-          <col style={{ width: '10%' }} />
+          <col style={{ width: '30%' }}/>
+          <col style={{ width: '15%' }}/>
+          <col style={{ width: '20%' }}/>
+          <col style={{ width: '15%' }}/>
+          <col style={{ width: '10%' }}/>
+          <col style={{ width: '10%' }}/>
         </colgroup>
         <thead>
           <tr className="border-b">
@@ -121,7 +107,6 @@ export function MyReviews() {
               key={r.reviewId}
               className="border-b hover:bg-gray-50 cursor-pointer"
               onClick={() => {
-                // 상세 페이지로. 체크리스트가 있으면 그쪽, 없으면 리뷰 상세
                 if (r.checklist?.checklist_id) {
                   navigate(`/shared-checklist/${r.checklist.checklist_id}`, {
                     state: { checklistTitle: r.checklist.title },
@@ -140,17 +125,11 @@ export function MyReviews() {
                 </div>
               </td>
               <td className="py-2 px-2">
-                {r.item ? (
-                  <>
-                    {r.item.itemCategory.categoryLabel} / {r.item.itemLabel}
-                  </>
-                ) : (
-                  '-'
-                )}
+                {r.item
+                  ? `${r.item.itemCategory.categoryLabel} / ${r.item.itemLabel}`
+                  : '-'}
               </td>
-              <td className="py-2 px-2">
-                {r.checklist?.title || '-'}
-              </td>
+              <td className="py-2 px-2">{r.checklist?.title || '-'}</td>
               <td className="py-2 px-2">{formatDate(r.createdAt)}</td>
               <td className="py-2 px-2 text-center">{r.likes}</td>
               <td className="py-2 px-2">

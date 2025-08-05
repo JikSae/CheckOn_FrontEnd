@@ -16,8 +16,9 @@ import Main from "./pages/main/Main";
 import ReviewDetail from "./pages/ReviewDetail";
 import CheckListWrapper from "./components/CheckListWrapper";
 
-
-
+import axios from 'axios'
+axios.defaults.withCredentials = true
+axios.defaults.baseURL      = 'http://localhost:4000'
 
 export default function App() {
   return (

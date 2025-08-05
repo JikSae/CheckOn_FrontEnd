@@ -1,43 +1,22 @@
 // src/hooks/useChecklistCreator.ts
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react'
 
-export type Purpose =
-  | '힐링'
-  | '액티비티'
-  | '비즈니스'
-  | '문화탐방'
-  | '캠핑'
-  | string;
-
-export type TravelType =
-  | 'ACTIVITY'
-  | 'BUSINESS'
-  | 'CULTURE'
-  | 'RELAX'
-  | 'CAMPING'
-  | 'GENERAL';
-
-export interface City {
-  cityId: number;
-  cityName: string;
-}
-
-export interface CatalogItem {
-  itemId: number;
-  item_label: string;
-}
+export type Purpose = '힐링' | '액티비티' | '비즈니스' | '문화탐방' | '캠핑' | string
+export type TravelType = 'ACTIVITY' | 'BUSINESS' | 'CULTURE' | 'RELAX' | 'CAMPING' | 'GENERAL'
+export interface City { cityId: number; cityName: string }
+export interface CatalogItem { itemId: number; item_label: string }
 
 interface CreateChecklistParams {
-  jwt: string;
-  userId: number;
-  cityId: number;
-  title: string;
-  purpose: Purpose;
-  travelStart: string; // YYYY-MM-DD
-  travelEnd: string; // YYYY-MM-DD
-  itemsTextList: string[]; // 준비물 라벨들
-  packingBagOverride?: Record<string, string>; // ex: { '노트북': 'HOLD' }
-  endpoint?: string;
+  // 이전에 jwt를 넘기셨는데, HttpOnly 쿠키 쓰시면 삭제해도 됩니다.
+  userId: number
+  cityId: number
+  title: string
+  purpose: Purpose
+  travelStart: string  // YYYY-MM-DD
+  travelEnd: string    // YYYY-MM-DD
+  itemsTextList: string[]
+  packingBagOverride?: Record<string, string>
+  endpoint?: string    // 기본값을 /my/checklists 로
 }
 
 interface UseChecklistCreatorResult {
@@ -118,8 +97,8 @@ export function useChecklistCreator(): UseChecklistCreatorResult {
   const [catalogLoading, setCatalogLoading] = useState(true);
   const [catalogError, setCatalogError] = useState<string | null>(null);
 
-  const [creating, setCreating] = useState(false);
-  const [createError, setCreateError] = useState<Error | null>(null);
+  const [creating, setCreating] = useState(false)
+  const [createError, setCreateError] = useState<Error | null>(null)
 
   useEffect(() => {
     const fetchCities = async () => {
@@ -172,7 +151,6 @@ export function useChecklistCreator(): UseChecklistCreatorResult {
 
   const createChecklist = useCallback(
     async ({
-      jwt,
       userId,
       cityId,
       title,
@@ -181,68 +159,52 @@ export function useChecklistCreator(): UseChecklistCreatorResult {
       travelEnd,
       itemsTextList,
       packingBagOverride = {},
-      endpoint = '/api/checklists',
+      endpoint = 'http://localhost:4000/my/checklists',
     }: CreateChecklistParams) => {
-      setCreating(true);
-      setCreateError(null);
+      setCreating(true)
+      setCreateError(null)
 
       //  console.log('▶ itemsTextList:', itemsTextList);
       try {
-        if (title.trim().length < 2) {
-          throw new Error('제목은 최소 2글자 이상이어야 합니다.');
-        }
-        if (!cityId) throw new Error('도시 정보가 필요합니다.');
-        if (!travelStart || !travelEnd)
-          throw new Error('여행 시작/종료일이 필요합니다.');
+        // (1) 유효성 검사
+        if (title.trim().length < 2) throw new Error('제목은 2글자 이상이어야 합니다.')
+        if (!cityId)              throw new Error('도시를 선택해주세요.')
+        if (!travelStart || !travelEnd) throw new Error('여행 시작/종료일이 필요합니다.')
+        if (catalogLoading)       throw new Error('준비물 카탈로그가 로딩 중입니다.')
 
-        if (catalogLoading) {
-          throw new Error(
-            '준비물 카탈로그를 아직 로딩 중입니다. 잠시만 기다려주세요.'
-          );
-        }
-
-        // 정규화된 카탈로그
-        const normalizedCatalog: Record<string, number> = {};
+        // (2) itemsTextList → itemId 매핑
+        const normalizedCatalog: Record<string, number> = {}
         Object.entries(catalog).forEach(([label, id]) => {
-          normalizedCatalog[normalize(label)] = id;
-        });
-
-      const items = itemsTextList
-        .map((rawLabel) => {
-          const norm = normalize(rawLabel);
-          // 1) 완전 일치 시도
-          let itemId = normalizedCatalog[norm];
-
-          // 2) 못 찾으면, 카탈로그 키 중에 rawLabel(norm) 이 포함된 항목을 찾아본다
-          if (!itemId) {
-            const fallbackEntry = Object.entries(normalizedCatalog)
-              .find(([key, id]) => key.includes(norm));
-            if (fallbackEntry) itemId = fallbackEntry[1];
-          }
-
-          if (!itemId) {
-            console.warn(`매핑 실패: '${rawLabel}' → '${norm}'`);
-            return null;
-          }
-
-          const packingBag = packingBagOverride[rawLabel] || DEFAULT_PACKING_BAG;
-          return { itemId, packingBag };
+          normalizedCatalog[normalize(label)] = id
         })
-        .filter((x): x is { itemId: number; packingBag: string } => Boolean(x));
 
-      if (items.length === 0) {
-        throw new Error(
-          '유효한 준비물이 하나도 없습니다. 준비물 라벨과 카탈로그가 정확히 일치하는지 확인하세요.'
-        );
-      }
+        const items = itemsTextList
+          .map(rawLabel => {
+            const norm = normalize(rawLabel)
+            let itemId = normalizedCatalog[norm]
+            // 부분 매칭
+            if (!itemId) {
+              const entry = Object.entries(normalizedCatalog)
+                .find(([key]) => key.includes(norm))
+              if (entry) itemId = entry[1]
+            }
+            if (!itemId) {
+              console.warn(`카탈로그에 없음: ${rawLabel}`)
+              return null
+            }
+            const packingBag = packingBagOverride[rawLabel] || 'HAND'
+            return { itemId, packingBag }
+          })
+          .filter((x): x is { itemId: number; packingBag: string } => !!x)
 
-        const travelType = mapPurposeToTravelType(purpose);
-        const travelStartISO = new Date(
-          `${travelStart}T00:00:00.000Z`
-        ).toISOString();
-        const travelEndISO = new Date(
-          `${travelEnd}T00:00:00.000Z`
-        ).toISOString();
+        if (items.length === 0) {
+          throw new Error('유효한 준비물이 없습니다. 레이블을 확인하세요.')
+        }
+
+        // (3) 페이로드 조립
+        const travelType = mapPurposeToTravelType(purpose)
+        const travelStartISO = new Date(`${travelStart}T00:00:00.000Z`).toISOString()
+        const travelEndISO   = new Date(`${travelEnd}T00:00:00.000Z`).toISOString()
 
         const payload = {
           userId,
@@ -250,37 +212,39 @@ export function useChecklistCreator(): UseChecklistCreatorResult {
           cityId,
           travelType,
           travelStart: travelStartISO,
-          travelEnd: travelEndISO,
-          items,
-        };
-
-        const url = endpoint.startsWith('http') ? endpoint : endpoint;
-
-        const res = await fetch(url, {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${jwt}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(payload),
-        });
-
-        if (!res.ok) {
-          const txt = await res.text();
-          throw new Error(`서버 오류 ${res.status}: ${txt}`);
+          travelEnd:   travelEndISO,
+          items
         }
 
-        const data = await res.json();
-        return data;
+        // (4) 실제 POST 요청
+        const res = await fetch(endpoint, {
+          method:      'POST',
+          credentials: 'include',              // HttpOnly 쿠키 사용 시
+          headers: {
+            'Content-Type': 'application/json',
+            // Non-HttpOnly 쿠키 → document.cookie로 읽어 `Authorization` 헤더에 넣어도 OK
+            // 'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(payload)
+        })
+
+        if (!res.ok) {
+          const text = await res.text()
+          throw new Error(`서버 오류 ${res.status}: ${text}`)
+        }
+
+        // (5) 응답 JSON 파싱
+        const data = await res.json()
+        return data
       } catch (e: any) {
-        setCreateError(e);
-        throw e;
+        setCreateError(e)
+        throw e
       } finally {
-        setCreating(false);
+        setCreating(false)
       }
     },
     [catalog, catalogLoading]
-  );
+  )
 
   return {
     cities,

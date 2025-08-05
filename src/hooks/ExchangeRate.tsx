@@ -56,6 +56,7 @@ const ExchangeRate: React.FC = () => {
               from: 'JPY',
               to: 'KRW',
             },
+             withCredentials: false 
           }
         );
 
@@ -80,6 +81,7 @@ const ExchangeRate: React.FC = () => {
               from: 'JPY',
               to: 'KRW',
             },
+             withCredentials: false 
           }
         );
 
