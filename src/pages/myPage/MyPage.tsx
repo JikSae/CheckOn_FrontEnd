@@ -50,7 +50,7 @@ const MyPage: React.FC = () => {
       setLoading(true);
       try {
         const token = localStorage.getItem('jwt') || '';
-        const res = await fetch('/api/my/checklists', {
+        const res = await fetch('http://localhost:4000/my/checklists/:checklistId', {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (!res.ok) throw new Error(`불러오기 실패 ${res.status}`);

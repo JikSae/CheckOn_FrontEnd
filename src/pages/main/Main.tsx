@@ -2,9 +2,9 @@
 import React from 'react';
 import SlideBar from '../../components/slideBar/SlideBar';
 import { Link } from 'react-router-dom';
-import Ranking from '../../components/ranking/Ranking';
 import ExchangeRate from '../../hooks/ExchangeRate';
 import WeatherCard from '../../components/weather/WeatherCard';
+import TopReviews from '../../components/ranking/TopReviews';
 
 const Main: React.FC = () => {
   return (
@@ -22,7 +22,7 @@ const Main: React.FC = () => {
             <span className="text-2xl md:text-3xl font-bold">추천 물품 ▸</span>
           </Link>
           <div className="w-full min-h-[220px] border rounded-md p-4">
-            <Ranking />
+            <TopReviews />
           </div>
         </section>
 

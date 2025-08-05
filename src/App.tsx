@@ -8,7 +8,7 @@ import AccountRecovery from "./pages/AccountRecovery";
 import ProfileEdit from "./pages/ProfileEdit";
 import Review from "./pages/Review";
 import Header from "./pages/layout/Header";
-import MakeCheckList from "./pages/makeCheckList/MakeCheckList";
+import MakeCheckList from "./components/makeChecklist/MakeCheckList";
 import Information from "./pages/information/Information";
 import ShareCheckList from "./pages/shareCheckList/ShareCheckList";
 import Record from "./pages/record/Record";
