@@ -1,20 +1,17 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-
+import { AUTH_URL } from "../utils/api";
 // Vite 환경변수로 API 주소 관리
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:4000";
-
 export default function Login() {
   const navigate = useNavigate();
   const [form, setForm] = useState({ email: "", password: "" });
   const [error, setError] = useState("");
-
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { id, value } = e.target;
     setForm((prev) => ({ ...prev, [id]: value }));
     setError("");
   };
-
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.email || !form.password) {
@@ -22,7 +19,7 @@ export default function Login() {
       return;
     }
     try {
-      const res = await fetch(`${API_URL}/auth/sign-in`, {
+      const res = await fetch(`${AUTH_URL}/sign-in`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
@@ -40,7 +37,6 @@ export default function Login() {
       setError("서버 연결에 실패했습니다.");
     }
   };
-
   return (
     <div className="min-h-screen flex flex-col bg-[#FEFEFE] text-gray-800">
       {/* 상단 여백 */}
@@ -51,7 +47,6 @@ export default function Login() {
           <h1 className="text-4xl font-bold text-center text-red-500 mb-12">
             Check .On
           </h1>
-
           {/* 폼 */}
           <form onSubmit={handleLogin} className="space-y-6">
             <div>
@@ -89,7 +84,6 @@ export default function Login() {
               로그인
             </button>
           </form>
-
           {/* 하단 링크들 */}
           <div className="flex justify-center gap-4 text-sm text-gray-700 mt-8">
             <Link to="/signup" className="hover:underline">
