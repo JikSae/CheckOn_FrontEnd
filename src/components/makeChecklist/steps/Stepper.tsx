@@ -15,7 +15,7 @@ const STEPS = [
 
 export function Stepper({ current }: { current: string }) {
   return (
-    <div className="flex gap-2 mb-4 text-xs items-center">
+    <div className="flex flex-wrap gap-2 mb-4 text-xs items-center w-[800px] ">
       {STEPS.map((s, i) => (
         <React.Fragment key={s}>
           <div className="flex items-center gap-2">

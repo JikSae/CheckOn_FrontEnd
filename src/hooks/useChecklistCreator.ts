@@ -186,7 +186,7 @@ export function useChecklistCreator(): UseChecklistCreatorResult {
       setCreating(true);
       setCreateError(null);
 
-       console.log('▶ itemsTextList:', itemsTextList);
+      //  console.log('▶ itemsTextList:', itemsTextList);
       try {
         if (title.trim().length < 2) {
           throw new Error('제목은 최소 2글자 이상이어야 합니다.');

@@ -116,7 +116,7 @@ export function useRecommendItems({
       setError(null);
       try {
         const endpoint =
-          import.meta.env.VITE_RECOMMENDATION_API_URL || '/recommendations';
+          import.meta.env.VITE_RECOMMENDATION_API_URL || 'http://localhost:4000/recommendations';
         const res = await fetchWithRetry(endpoint, {
           method: 'POST',
           headers: {

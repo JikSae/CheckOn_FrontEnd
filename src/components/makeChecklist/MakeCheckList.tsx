@@ -1,401 +1,314 @@
-import { useRef, useEffect, useState, useCallback } from 'react';
-import ModifyCheckList, { type Item as ModifyItem } from './ModifyCheckList';
-import type { Item } from './ModifyCheckList';
-import { useChecklistCreator } from '../../hooks/useChecklistCreator';
-import { useRecommendItems } from '../../hooks/useRecommendItems';
-import { computeLocalRecommendations } from '../../hooks/recommendUtils';
-import type { SelectedItem } from '../../models/selection';
-import type { RawCategory } from '../../hooks/useRecommendItems';
+// src/components/makeChecklist/MakeCheckList.tsx
+import React, { useRef, useEffect, useState, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
+import ModifyCheckList, { type Item as ModifyItem } from './ModifyCheckList'
+import type { Item } from './ModifyCheckList'
+import { useChecklistCreator } from '../../hooks/useChecklistCreator'
+import { useRecommendItems } from '../../hooks/useRecommendItems'
+import {
+  computeLocalRecommendations,
+  mapRecommendationsToData,
+  type RecommendInputCore,
+  type RecommendedItem
+} from '../../hooks/recommendUtils'
+import { LOCAL_CATEGORIES } from '../../data/categories'
+import { Stepper } from './steps/Stepper'
+import { CityStep } from './steps/CityStep'
+import { DateStep } from './steps/DateStep'
+import { CompanionStep } from './steps/CompanionStep'
+import { PurposeStep } from './steps/PurposeStep'
+import { JPorPStep } from './steps/JPorPStep'
+import { TransportStep } from './steps/TransportStep'
+import { ActivitiesStep } from './steps/ActivitiesStep'
+import { MinimalStep } from './steps/MinimalStep'
+import { ExchangeStep } from './steps/ExchangeStep'
+import { ItemsStep } from './steps/ItemsStep'
+import type { ApiCategory } from './steps/ItemsStep'
 
-import { Stepper } from './steps/Stepper';
-import { CityStep } from './steps/CityStep';
-import { DateStep } from './steps/DateStep';
-import { CompanionStep } from './steps/CompanionStep';
-import { PurposeStep } from './steps/PurposeStep';
-import { JPorPStep } from './steps/JPorPStep';
-import { TransportStep } from './steps/TransportStep';
-import { ActivitiesStep } from './steps/ActivitiesStep';
-import { MinimalStep } from './steps/MinimalStep';
-import { ExchangeStep } from './steps/ExchangeStep';
-import { ItemsStep } from './steps/ItemsStep';
-import type { ApiCategory } from './steps/ItemsStep';
+type Message = { sender: 'bot' | 'user'; text: string }
+type SelectedItem = { text: string; category: string; source: 'api' | 'fallback' }
 
-type Message = { sender: 'bot' | 'user'; text: string };
+const PURPOSE_OPTIONS = ['힐링','액티비티','비즈니스','문화탐방','캠핑']
+const TRANSPORT_OPTIONS = ['렌트','대중교통']
+const ACTIVITY_OPTIONS = ['등산','바다 수영','맛집 탐방','유적지 탐방']
+const COMPANION_OPTIONS = ['유아','미성년자','노인','반려 동물']
+const MINIMAL_ITEMS = ['여권','충전기','선크림']
 
-const PURPOSE_OPTIONS = ['힐링', '액티비티', '비즈니스', '문화탐방', '캠핑'];
-const TRANSPORT_OPTIONS = ['렌트', '대중교통'];
-const ACTIVITY_OPTIONS = ['등산', '바다 수영', '맛집 탐방', '유적지 탐방'];
-const COMPANION_OPTIONS = ['유아', '미성년자', '노인', '반려 동물'];
-const MINIMAL_ITEMS = ['여권', '충전기', '선크림'];
-
-function formatYMD(date: Date) {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const d = String(date.getDate()).padStart(2, '0');
-  return `${y}-${m}-${d}`;
+function formatYMD(d: Date) {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${dd}`
 }
 
 export default function MakeCheckList() {
-  const [step, setStep] = useState<
-    | 'city'
-    | 'date'
-    | 'companion'
-    | 'purpose'
-    | 'jp'
-    | 'jp-custom'
-    | 'transport'
-    | 'activities'
-    | 'minimal'
-    | 'exchange'
-    | 'items'
-    | 'done'
-  >('city');
+  const navigate = useNavigate()
 
+  // 1. 챗봇 상태 및 메시지
+  const [step, setStep] = useState<
+    | 'city' | 'date' | 'companion' | 'purpose' | 'jp' | 'jp-custom'
+    | 'transport' | 'activities' | 'minimal' | 'exchange' | 'items' | 'done'
+  >('city')
   const [messages, setMessages] = useState<Message[]>([
-    { sender: 'bot', text: '여행할 도시를 입력해주세요.' },
-  ]);
-  const addMsg = (msg: Message) =>
-    setMessages((prev) => {
+    { sender: 'bot', text: '여행할 도시를 입력해주세요.' }
+  ])
+  const addMsg = (m: Message) =>
+    setMessages(prev => {
       if (
         prev.length &&
-        prev[prev.length - 1].text === msg.text &&
-        prev[prev.length - 1].sender === msg.sender
+        prev[prev.length - 1].text === m.text &&
+        prev[prev.length - 1].sender === m.sender
       ) {
-        return prev;
+        return prev
       }
-      return [...prev, msg];
-    });
+      return [...prev, m]
+    })
 
+  // 2. 체크리스트 생성 훅
   const {
     cities,
     citiesLoading,
     citiesError,
-    catalog,
     catalogLoading,
-    catalogError,
     createChecklist,
     creating,
     createError,
-  } = useChecklistCreator();
+  } = useChecklistCreator()
 
-  const [city, setCity] = useState<{ cityId: number; cityName: string } | null>(null);
-  const [departureDate, setDepartureDate] = useState<Date | undefined>();
-  const [arrivalDate, setArrivalDate] = useState<Date | undefined>();
-  const [purpose, setPurpose] = useState('');
-  const [jpType, setJpType] = useState<'J' | 'P' | ''>('');
-  const [transport, setTransport] = useState('');
-  const [activities, setActivities] = useState<string[]>([]);
-  const [minimalPack, setMinimalPack] = useState<boolean | null>(null);
-  const [exchange, setExchange] = useState<boolean | null>(null);
-  const [companions, setCompanions] = useState<string[]>([]);
-  const [selectedItems, setSelectedItems] = useState<SelectedItem[]>([]);
-  const [customItem, setCustomItem] = useState('');
-  const [customItems, setCustomItems] = useState<string[]>([]);
-  const [fallbackAnnounced, setFallbackAnnounced] = useState(false);
-  const userTouchedRef = useRef(false);
-  const [showEditor, setShowEditor] = useState(false);
+  // 3. 사용자 선택 값
+  const [city, setCity] = useState<{ cityId: number; cityName: string } | null>(null)
+  const [departureDate, setDepartureDate] = useState<Date>()
+  const [arrivalDate, setArrivalDate] = useState<Date>()
+  const [purpose, setPurpose] = useState('')
+  const [jpType, setJpType] = useState<'J' | 'P' | ''>('')
+  const [transport, setTransport] = useState('')
+  const [activities, setActivities] = useState<string[]>([])
+  const [minimalPack, setMinimalPack] = useState<boolean | null>(null)
+  const [exchange, setExchange] = useState<boolean | null>(null)
+  const [companions, setCompanions] = useState<string[]>([])
+  const userTouchedRef = useRef(false)
+  const [fallbackAnnounced, setFallbackAnnounced] = useState(false)
+
+  // 4. 추천된 아이템 상태
+  const [selectedItems, setSelectedItems] = useState<RecommendedItem[]>([])
+  const [customItem, setCustomItem] = useState('')
+  const [customItems, setCustomItems] = useState<string[]>([])
+
+  // 5. editor 모드 전환용 state
+  const [showEditor, setShowEditor] = useState(false)
   const [editorData, setEditorData] = useState<{
-    title: string;
-    startDate: string;
-    endDate: string;
-    items: Omit<Item, 'id' | 'checked'>[];
-  } | null>(null);
+    title: string
+    startDate: string
+    endDate: string
+    items: Omit<Item, 'id' | 'checked'>[]
+  } | null>(null)
 
+  // 6. API 추천 훅
   const {
     recommended: apiRecommended,
     raw: apiRecommendedRaw,
     loading: recommendLoading,
     error: recommendError,
-    markUserTouched,
+    markUserTouched
   } = useRecommendItems({
     travelStart: departureDate ? formatYMD(departureDate) : '',
     travelEnd: arrivalDate ? formatYMD(arrivalDate) : '',
-    purpose,
-    transport,
-    activities,
-    minimalPack,
-    exchange,
-    companions,
-    jpType,
-    step,
-    jwt: localStorage.getItem('jwt') || '',
-  });
+    purpose, transport, activities, minimalPack, exchange, companions, jpType, step,
+    jwt: localStorage.getItem('jwt') || ''
+  })
 
-  // API 추천 덮어쓰기 (한번만, 유저 조작 없을 때)
+  // 7. API 추천 → selectedItems 세팅
   useEffect(() => {
     if (apiRecommended.length && !fallbackAnnounced && !userTouchedRef.current) {
-      const mapped: SelectedItem[] = apiRecommended.map((label) => {
-        const found = apiRecommendedRaw
-          .flatMap((c) =>
-            c.items.map((it) => ({
-              categoryLabel: c.categoryLabel,
-              itemLabel: it.itemLabel,
-            }))
-          )
-          .find((x) => x.itemLabel.trim().toLowerCase() === label.trim().toLowerCase());
-        return {
-          text: label,
-          category: found ? found.categoryLabel : '기타',
-          source: 'api',
-        };
-      });
-      setSelectedItems(mapped);
+      const mapped = mapRecommendationsToData({ purpose, transport, activities, minimalPack, exchange, companions })
+      setSelectedItems(mapped.map(it => ({ ...it, source: 'api' })))
     }
-  }, [apiRecommended, fallbackAnnounced, apiRecommendedRaw]);
+  }, [
+    apiRecommended, fallbackAnnounced, apiRecommendedRaw,
+    purpose, transport, activities, minimalPack, exchange, companions
+  ])
 
-  // fallback 계산
-  const fallbackRecs: SelectedItem[] = computeLocalRecommendations({
-    purpose,
-    transport,
-    activities,
-    minimalPack,
-    exchange,
-    companions,
-  }).map((text) => ({
-    text,
-    category: '기타',
-    source: 'fallback',
-  }));
+  // 8. 로컬 fallback 추천
+  const fallbackRecs = computeLocalRecommendations({ purpose, transport, activities, minimalPack, exchange, companions })
+    .map(text => ({ categoryLabel: '기타', itemLabel: text, source: 'fallback' }))
 
-  // useEffect(() => {
-  //   if (recommendError && !fallbackAnnounced) {
-  //     if (!userTouchedRef.current && fallbackRecs.length) {
-  //       setSelectedItems(fallbackRecs);
-  //     }
-  //     addMsg({
-  //       sender: 'bot',
-  //       text: '추천 불러오기 실패, 기본 추천이 적용되었습니다.',
-  //     });
-  //     setFallbackAnnounced(true);
-  //   }
-  // }, [
-  //   recommendError,
-  //   fallbackRecs,
-  //   fallbackAnnounced,
-  //   purpose,
-  //   transport,
-  //   activities,
-  //   minimalPack,
-  //   exchange,
-  //   companions,
-  // ]);
+  // 9. 추천 토글
+  const toggleItem = (it: RecommendedItem) => {
+    markUserTouched()
+    userTouchedRef.current = true
+    setFallbackAnnounced(false)
+    setSelectedItems(prev => {
+      const exists = prev.some(x => x.itemLabel === it.itemLabel && x.categoryLabel === it.categoryLabel)
+      if (exists) return prev.filter(x => !(x.itemLabel === it.itemLabel && x.categoryLabel === it.categoryLabel))
+      return [...prev, it]
+    })
+  }
 
-  // 흐름 함수들
+  // 10. 스텝 핸들러들 (생략 없이 동일하게)
   const handleSelectCity = (c: { cityId: number; cityName: string }) => {
-    setCity(c);
-    addMsg({ sender: 'user', text: c.cityName });
-    addMsg({ sender: 'bot', text: '출발일과 도착일을 선택해주세요.' });
-    setStep('date');
-  };
-
-  const handleSelectDates = (dep?: Date, arr?: Date) => {
-    if (dep) setDepartureDate(dep);
-    if (arr && departureDate) {
-      setArrivalDate(arr);
-      const from = formatYMD(departureDate);
-      const to = formatYMD(arr);
-      addMsg({ sender: 'user', text: `${from} ~ ${to}` });
-      addMsg({
-        sender: 'bot',
-        text: '동행인 혹은 반려동물을 선택해주세요.',
-      });
-      setStep('companion');
+    setCity(c)
+    addMsg({ sender: 'user', text: c.cityName })
+    addMsg({ sender: 'bot', text: '출발/도착일을 선택해주세요.' })
+    setStep('date')
+  }
+  const handleSelectDates = (d1?: Date, d2?: Date) => {
+    if (d1) setDepartureDate(d1)
+    if (d2 && departureDate) {
+      setArrivalDate(d2)
+      addMsg({ sender: 'user', text: `${formatYMD(departureDate)} ~ ${formatYMD(d2)}` })
+      addMsg({ sender: 'bot', text: '동행인을 선택해주세요.' })
+      setStep('companion')
     }
-  };
-
+  }
   const handleCompanionNext = () => {
-    addMsg({
-      sender: 'user',
-      text: companions.length ? companions.join(', ') : '없음',
-    });
-    addMsg({ sender: 'bot', text: '여행 목적을 선택해주세요.' });
-    setStep('purpose');
-  };
-
+    addMsg({ sender: 'user', text: companions.length ? companions.join(', ') : '없음' })
+    addMsg({ sender: 'bot', text: '여행 목적을 선택해주세요.' })
+    setStep('purpose')
+  }
   const handlePurpose = (opt: string) => {
-    setPurpose(opt);
-    addMsg({ sender: 'user', text: opt });
-    addMsg({
-      sender: 'bot',
-      text: '판단 유형을 선택해주세요: J(직접 입력) / P(추천)',
-    });
-    setStep('jp');
-  };
-
+    setPurpose(opt)
+    addMsg({ sender: 'user', text: opt })
+    addMsg({ sender: 'bot', text: 'J(직접) 또는 P(추천)을 선택하세요.' })
+    setStep('jp')
+  }
   const handleJp = (t: 'J' | 'P') => {
-    setJpType(t);
-    addMsg({ sender: 'user', text: t });
+    setJpType(t)
+    addMsg({ sender: 'user', text: t })
     if (t === 'J') {
-      addMsg({ sender: 'bot', text: '원하는 준비물을 직접 입력해주세요.' });
-      setStep('jp-custom');
+      addMsg({ sender: 'bot', text: '직접 입력 준비물을 적어주세요.' })
+      setStep('jp-custom')
     } else {
-      addMsg({ sender: 'bot', text: '교통 수단을 선택해주세요.' });
-      setStep('transport');
+      addMsg({ sender: 'bot', text: '교통수단을 선택해주세요.' })
+      setStep('transport')
     }
-  };
-
+  }
   const handleTransport = (opt: string) => {
-    setTransport(opt);
-    addMsg({ sender: 'user', text: opt });
-    addMsg({ sender: 'bot', text: '원하는 활동을 선택해주세요.' });
-    setStep('activities');
-  };
-
+    setTransport(opt)
+    addMsg({ sender: 'user', text: opt })
+    addMsg({ sender: 'bot', text: '활동을 선택해주세요.' })
+    setStep('activities')
+  }
   const handleActivitiesNext = () => {
-    addMsg({
-      sender: 'user',
-      text: activities.length ? activities.join(', ') : '없음',
-    });
-    addMsg({ sender: 'bot', text: '짐을 최소화하시겠습니까?' });
-    setStep('minimal');
-  };
-
+    addMsg({ sender: 'user', text: activities.join(', ') || '없음' })
+    addMsg({ sender: 'bot', text: '짐을 최소화하시겠습니까?' })
+    setStep('minimal')
+  }
   const handleMinimal = (yes: boolean) => {
-    setMinimalPack(yes);
-    addMsg({ sender: 'user', text: yes ? '예 (미니멀)' : '아니요' });
-    addMsg({ sender: 'bot', text: '환전이 필요하신가요?' });
-    setStep('exchange');
-  };
-
+    setMinimalPack(yes)
+    addMsg({ sender: 'user', text: yes ? '예' : '아니요' })
+    addMsg({ sender: 'bot', text: '환전이 필요하신가요?' })
+    setStep('exchange')
+  }
   const handleExchange = (yes: boolean) => {
-    setExchange(yes);
-    addMsg({ sender: 'user', text: yes ? '예' : '아니요' });
-    addMsg({ sender: 'bot', text: '추천 준비물을 선택해주세요.' });
-    setStep('items');
-  };
-
+    setExchange(yes)
+    addMsg({ sender: 'user', text: yes ? '예' : '아니요' })
+    addMsg({ sender: 'bot', text: '추천 준비물을 선택해주세요.' })
+    setStep('items')
+  }
   const addCustomAndFinish = () => {
-    if (!customItem.trim()) return;
-    setCustomItems((prev) => [...prev, customItem.trim()]);
-    setCustomItem('');
-  };
-
+    if (!customItem.trim()) return
+    setCustomItems(p => [...p, customItem.trim()])
+    setCustomItem('')
+  }
   const finishCustom = () => {
-    addMsg({
-      sender: 'user',
-      text: customItems.length ? customItems.join(', ') : '없음',
-    });
-    goToEditor();
-  };
+    addMsg({ sender: 'user', text: customItems.join(', ') || '없음' })
+    goToEditor()
+  }
+  const toggleCompanion = (c: string) => setCompanions(p => p.includes(c) ? p.filter(x => x !== c) : [...p, c])
+  const toggleActivity = (a: string) => setActivities(p => p.includes(a) ? p.filter(x => x !== a) : [...p, a])
 
-  const toggleCompanion = (c: string) => {
-    setCompanions((prev) => (prev.includes(c) ? prev.filter((x) => x !== c) : [...prev, c]));
-  };
-
-  const toggleActivity = (act: string) => {
-    setActivities((prev) => (prev.includes(act) ? prev.filter((x) => x !== act) : [...prev, act]));
-  };
-
-  const toggleItem = (it: SelectedItem) => {
-    markUserTouched();
-    userTouchedRef.current = true;
-    setFallbackAnnounced(false);
-    setSelectedItems((prev) => {
-      const exists = prev.some(
-        (s) =>
-          s.text.trim().toLowerCase() === it.text.trim().toLowerCase() && s.category === it.category
-      );
-      if (exists) {
-        return prev.filter(
-          (s) =>
-            !(
-              s.text.trim().toLowerCase() === it.text.trim().toLowerCase() &&
-              s.category === it.category
-            )
-        );
-      }
-      return [...prev, it];
-    });
-  };
-
+  // 11. 최종 finishItems → editorData 생성
   const finishItems = () => {
-    const finalSelected = selectedItems.length
+    const final = selectedItems.length > 0
       ? selectedItems
-      : MINIMAL_ITEMS.map((t) => ({ text: t, category: '기타', source: 'fallback' as const }));
-
-    addMsg({
-      sender: 'user',
-      text: finalSelected.map((i) => i.text).join(', '),
-    });
-
+      : MINIMAL_ITEMS.map(t => ({ categoryLabel: '기타', itemLabel: t, source: 'fallback' }))
+    addMsg({ sender: 'user', text: final.map(x => x.itemLabel).join(', ') })
     if (selectedItems.length === 0) {
-      addMsg({
-        sender: 'bot',
-        text: `선택된 준비물이 없어 미니멀 기본으로 채워졌습니다: ${MINIMAL_ITEMS.join(', ')}`,
-      });
+      addMsg({ sender: 'bot', text: `기본 추천 적용: ${MINIMAL_ITEMS.join(', ')}` })
     }
+    const title = `${city?.cityName || ''} ${purpose}`
+    const s = departureDate ? formatYMD(departureDate) : ''
+    const e = arrivalDate ? formatYMD(arrivalDate) : ''
+    const itemsArr = jpType === 'J'
+      ? customItems.map(t => ({ category: '기타', tag: '기타', text: t }))
+      : final.map(x => ({ category: x.categoryLabel, tag: '기타', text: x.itemLabel }))
+    setEditorData({ title, startDate: s, endDate: e, items: itemsArr })
+    setShowEditor(true)
+  }
+  const goToEditor = () => finishItems()
 
-    const title = `${city?.cityName || ''} ${purpose}`;
-    const startDate = departureDate ? formatYMD(departureDate) : '';
-    const endDate = arrivalDate ? formatYMD(arrivalDate) : '';
-    const items =
-      jpType === 'J'
-        ? customItems.map((text) => ({ category: '기타', tag: '기타', text }))
-        : finalSelected.map((it) => ({ category: it.category, tag: '기타', text: it.text }));
-
-    setEditorData({ title, startDate, endDate, items });
-    setShowEditor(true);
-  };
-
-  const goToEditor = () => {
-    const title = `${city?.cityName || ''} ${purpose}`;
-    const startDate = departureDate ? formatYMD(departureDate) : '';
-    const endDate = arrivalDate ? formatYMD(arrivalDate) : '';
-    const items =
-      jpType === 'J'
-        ? customItems.map((text) => ({ category: '기타', tag: '기타', text }))
-        : selectedItems.map((it) => ({ category: it.category, tag: '기타', text: it.text }));
-    setEditorData({ title, startDate, endDate, items });
-    setShowEditor(true);
-  };
-
+  // 12. ***handleSave*** (여기에 넣었습니다)
   const handleSave = useCallback(
-    async (data: { title: string; startDate: string; endDate: string; items: ModifyItem[] }) => {
-      try {
-        if (!city) throw new Error('도시를 선택해주세요.');
-        if (catalogLoading) {
-          alert('준비물이 로딩 중입니다. 잠시만 기다려주세요.');
-          return;
+    async (data: {
+      title: string
+      startDate: string
+      endDate: string
+      items: ModifyItem[]
+    }) => {
+      if (!city) {
+        alert('도시를 선택해주세요.')
+        return
+      }
+      if (catalogLoading) {
+        alert('준비물이 로딩 중입니다.')
+        return
+      }
+
+      // 1) selectedItems → API 스펙 items 배열 생성
+      const payloadItems = selectedItems.map(sel => {
+        for (const cat of LOCAL_CATEGORIES) {
+          const found = cat.items.find(it => it.itemLabel === sel.itemLabel)
+          if (found && found.itemId != null) {
+            return {
+              itemId: found.itemId,
+              packingBag: 'HAND' as const,
+            }
+          }
         }
-        const jwt = localStorage.getItem('jwt') || '';
-        const userId = 1;
-        await createChecklist({
-          jwt,
-          userId,
-          cityId: city.cityId,
-          title: data.title,
-          purpose,
-          travelStart: data.startDate,
-          travelEnd: data.endDate,
-          itemsTextList: data.items.map((it) => it.text),
-        });
-        alert('체크리스트 생성 완료');
-        // reset
-        setShowEditor(false);
-        setStep('city');
-        setPurpose('');
-        setJpType('');
-        setTransport('');
-        setActivities([]);
-        setMinimalPack(null);
-        setExchange(null);
-        setCompanions([]);
-        setSelectedItems([]);
-        setCustomItems([]);
-        setCity(null);
-        setDepartureDate(undefined);
-        setArrivalDate(undefined);
-        setMessages([{ sender: 'bot', text: '여행할 도시를 입력해주세요.' }]);
-        setFallbackAnnounced(false);
-        userTouchedRef.current = false;
-      } catch (e: any) {
-        alert('생성 실패: ' + e.message);
+        return { itemId: null, packingBag: 'HAND' as const }
+      })
+
+      // 2) 전체 페이로드
+      const payload = {
+        userId: 1,
+        title: data.title,
+        cityId: city.cityId,
+        travelType: 'ACTIVITY',
+        travelStart: `${data.startDate}T00:00:00.000Z`,
+        travelEnd: `${data.endDate}T00:00:00.000Z`,
+        items: payloadItems,
+      }
+
+    console.log('▶️ payloadItems:', payloadItems)
+    console.log('▶️ payload 전체:', payload)
+
+      try {
+        await fetch('http://localhost:4000/my/checklists', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${localStorage.getItem('jwt')}`,
+          },
+          body: JSON.stringify(payload),
+        })
+        alert('체크리스트 생성 완료')
+        navigate('/mypage')
+      } catch (err: any) {
+        alert('생성 실패: ' + err.message)
       }
     },
-    [city, purpose, createChecklist, catalogLoading]
-  );
+    [city, catalogLoading, selectedItems, navigate]
+  )
 
+  // 13. editor 모드 렌더링
   if (showEditor && editorData) {
+    const cats: ApiCategory[] = apiRecommendedRaw.length > 0
+      ? apiRecommendedRaw.map(c => ({
+          categoryLabel: c.categoryLabel,
+          items: c.items.map(i => ({ itemLabel: i.itemLabel }))
+        }))
+      : LOCAL_CATEGORIES
+
     return (
       <ModifyCheckList
         initialTitle={editorData.title}
@@ -403,34 +316,44 @@ export default function MakeCheckList() {
         initialEndDate={editorData.endDate}
         initialItems={editorData.items}
         onSave={handleSave}
-        recommendedCategories={apiRecommendedRaw.map((c) => ({
-          categoryLabel: c.categoryLabel,
-          items: c.items.map((it) => ({ itemLabel: it.itemLabel })),
-        }))}
+        recommendedCategories={cats}
       />
-    );
+    )
   }
 
   const isFinishDisabled = Boolean(
     creating ||
-      recommendLoading ||
-      catalogLoading ||
-      (recommendError && apiRecommended.length === 0 && selectedItems.length === 0)
-  );
+    recommendLoading ||
+    catalogLoading ||
+    (recommendError && apiRecommended.length === 0 && selectedItems.length === 0)
+  )
 
+  // ItemsStep에 넘길 SelectedItem[]
+  const itemsForStep: SelectedItem[] = selectedItems.map(x => ({
+    text: x.itemLabel,
+    category: x.categoryLabel,
+    source: x.source
+  }))
+
+  // 14. 일반 모드 UI 반환
   return (
-    <div className="max-w-[1320px] mx-auto">
-      <h3 className="text-3xl font-bold text-center my-6">체크리스트 만들기</h3>
-      <div className="w-full mx-auto p-6 bg-white rounded-xl shadow-lg">
+    <div className="max-w-4xl mx-auto my-8">
+      <h3 className="text-3xl font-bold text-center mb-6">체크리스트 만들기</h3>
+      <div className="bg-white p-6 rounded-xl shadow-lg">
         <Stepper current={step} />
 
         {/* 메시지 로그 */}
         <div className="space-y-4 mb-6">
           {messages.map((m, i) => (
-            <div key={i} className={`flex ${m.sender === 'bot' ? 'justify-start' : 'justify-end'}`}>
+            <div
+              key={i}
+              className={`flex ${m.sender === 'bot' ? 'justify-start' : 'justify-end'} `}
+            >
               <div
                 className={`px-4 py-2 rounded-lg whitespace-pre-wrap ${
-                  m.sender === 'bot' ? 'bg-gray-100 text-gray-800' : 'bg-red-500 text-white'
+                  m.sender === 'bot'
+                    ? 'bg-gray-100 text-gray-800'
+                    : 'bg-red-500 text-white'
                 }`}
               >
                 {m.text}
@@ -439,7 +362,7 @@ export default function MakeCheckList() {
           ))}
         </div>
 
-        {/* 스텝별 */}
+        {/* 스텝별 UI */}
         {step === 'city' && (
           <CityStep
             cities={cities}
@@ -449,16 +372,14 @@ export default function MakeCheckList() {
             error={citiesError}
           />
         )}
-
         {step === 'date' && (
           <DateStep
             departureDate={departureDate}
             arrivalDate={arrivalDate}
-            onSelectDeparture={(d) => handleSelectDates(d, arrivalDate)}
-            onSelectArrival={(d) => handleSelectDates(departureDate, d)}
+            onSelectDeparture={d => handleSelectDates(d, arrivalDate)}
+            onSelectArrival={d => handleSelectDates(departureDate, d)}
           />
         )}
-
         {step === 'companion' && (
           <CompanionStep
             companions={companions}
@@ -467,74 +388,92 @@ export default function MakeCheckList() {
             onNext={handleCompanionNext}
           />
         )}
-
         {step === 'purpose' && (
-          <PurposeStep purpose={purpose} options={PURPOSE_OPTIONS} onSelectPurpose={handlePurpose} />
+          <PurposeStep
+            purpose={purpose}
+            options={PURPOSE_OPTIONS}
+            onSelectPurpose={handlePurpose}
+          />
         )}
-
         {step === 'jp' && <JPorPStep jpType={jpType} onSelect={handleJp} />}
-
         {step === 'jp-custom' && (
-          <>
-            <div className="flex gap-2 mb-4">
+          <div className="space-y-4">
+            <div className="flex gap-2">
               <input
-                type="text"
-                value={customItem}
-                onChange={(e) => setCustomItem(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && addCustomAndFinish()}
-                className="flex-1 border rounded px-3 py-2 focus:outline-none"
+                className="flex-1 border rounded px-3 py-2"
                 placeholder="직접 입력할 준비물"
+                value={customItem}
+                onChange={e => setCustomItem(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && addCustomAndFinish()}
               />
-              <button onClick={addCustomAndFinish} className="bg-red-500 text-white px-4 py-2 rounded">
+              <button
+                className="bg-red-500 text-white px-4 py-2 rounded"
+                onClick={addCustomAndFinish}
+              >
                 추가
               </button>
             </div>
-            <div className="flex flex-wrap gap-2 mb-2">
-              {customItems.map((it) => (
-                <div key={it} className="px-3 py-1 bg-gray-100 rounded-full flex items-center gap-2 text-sm">
-                  {it}
-                  <button onClick={() => setCustomItems((p) => p.filter((x) => x !== it))}>✕</button>
+            <div className="flex flex-wrap gap-2">
+              {customItems.map(it => (
+                <div
+                  key={it}
+                  className="px-3 py-1 bg-gray-100 rounded-full flex items-center gap-2"
+                >
+                  {it} <button onClick={() => setCustomItems(p => p.filter(x => x !== it))}>✕</button>
                 </div>
               ))}
             </div>
-            <button onClick={finishCustom} className="ml-auto bg-red-500 text-white px-6 py-2 rounded-full">
+            <button
+              className="bg-red-500 text-white px-6 py-2 rounded-full ml-auto block"
+              onClick={finishCustom}
+            >
               완료
             </button>
-          </>
+          </div>
         )}
-
         {step === 'transport' && (
-          <TransportStep transport={transport} options={TRANSPORT_OPTIONS} onSelectTransport={handleTransport} />
+          <TransportStep
+            transport={transport}
+            options={TRANSPORT_OPTIONS}
+            onSelectTransport={handleTransport}
+          />
         )}
-
         {step === 'activities' && (
-          <ActivitiesStep activities={activities} options={ACTIVITY_OPTIONS} toggleActivity={toggleActivity} onNext={handleActivitiesNext} />
+          <ActivitiesStep
+            activities={activities}
+            options={ACTIVITY_OPTIONS}
+            toggleActivity={toggleActivity}
+            onNext={handleActivitiesNext}
+          />
         )}
-
         {step === 'minimal' && (
           <MinimalStep minimalPack={minimalPack} onSelect={handleMinimal} />
         )}
-
         {step === 'exchange' && (
           <ExchangeStep exchange={exchange} onSelect={handleExchange} />
         )}
-
         {step === 'items' && (
           <ItemsStep
-            categories={apiRecommendedRaw.map((c) => ({
-              categoryLabel: c.categoryLabel,
-              items: c.items.map((it) => ({ itemLabel: it.itemLabel })),
-            } as ApiCategory))}
-            selectedItems={selectedItems}
-            toggleItem={toggleItem}
+            categories={
+              apiRecommendedRaw.length > 0
+                ? apiRecommendedRaw.map(c => ({
+                    categoryLabel: c.categoryLabel,
+                    items: c.items.map(i => ({ itemLabel: i.itemLabel }))
+                  }))
+                : LOCAL_CATEGORIES
+            }
+            selectedItems={itemsForStep}
+            toggleItem={si => toggleItem({ categoryLabel: si.category, itemLabel: si.text, source: si.source })}
             finishItems={finishItems}
             isFinishDisabled={isFinishDisabled}
-            minimalPack={minimalPack}
+            minimalPack={!!minimalPack}
           />
         )}
 
-        {createError && <div className="text-red-500 mt-2">{createError.message}</div>}
+        {createError && (
+          <div className="text-red-500 mt-4">{createError.message}</div>
+        )}
       </div>
     </div>
-  );
+  )
 }

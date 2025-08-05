@@ -10,18 +10,43 @@ export default function ReviewDetail() {
   const [likes, setLikes] = useState(0);
   const [liked, setLiked] = useState(false);
 
+  // ✅ useEffect 밖으로 이동
+  const toggleLike = async () => {
+    const newLiked = !liked;
+    setLiked(newLiked);
+    setLikes(prev => newLiked ? prev + 1 : prev - 1);
+
+    try {
+      const res = await fetch(`${API_URL}/my/items-reviews/${id}/like`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+        body: JSON.stringify({ liked: newLiked }),
+      });
+
+      if (!res.ok) throw new Error("백엔드 요청 실패");
+    } catch (err) {
+      console.error("추천 상태 전송 실패:", err);
+    }
+  };
+
   useEffect(() => {
+    if (!id) return;
+
     const fetchReview = async () => {
       try {
         const res = await fetch(`${API_URL}/my/items-reviews/${id}`);
         const data = await res.json();
         setReview(data);
-        setLikes(data.likes);
+        setLikes(data.likes ?? 0);
         setLiked(data.isLikedByMe ?? false);
       } catch (err) {
         console.error("리뷰 불러오기 실패:", err);
       }
     };
+
     fetchReview();
   }, [id]);
 
@@ -37,7 +62,7 @@ export default function ReviewDetail() {
               <p className="text-sm text-gray-500">{review.location}</p>
             </div>
             <div className="text-lg flex items-center gap-2">
-              <button onClick={() => setLiked(!liked)}>
+              <button onClick={toggleLike}>
                 <span className={liked ? "text-red-500 text-xl" : "text-gray-400 text-xl"}>♥</span>
               </button>
               <span>{likes}</span>
@@ -53,7 +78,7 @@ export default function ReviewDetail() {
           <div className="flex justify-between border-b pb-2">
             <span>{review.duration}</span>
             <div className="flex gap-2">
-              {review.tags.map((tag: string, idx: number) => (
+              {Array.isArray(review.tags) && review.tags.map((tag: string, idx: number) => (
                 <span key={idx} className="bg-gray-200 px-3 py-1 rounded-full text-sm">{tag}</span>
               ))}
             </div>
@@ -70,3 +95,4 @@ export default function ReviewDetail() {
     </div>
   );
 }
+
