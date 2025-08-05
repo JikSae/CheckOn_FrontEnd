@@ -1,5 +1,7 @@
+// login
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { AUTH_URL } from "../utils/api";
 
 // Vite 환경변수로 API 주소 관리
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:4000";
@@ -22,7 +24,7 @@ export default function Login() {
       return;
     }
     try {
-      const res = await fetch(`${API_URL}/auth1/sign-in`, {
+      const res = await fetch(`${AUTH_URL}/sign-in`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),

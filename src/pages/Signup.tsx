@@ -1,5 +1,7 @@
+// signup
 import React, { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import { AUTH_URL } from "../utils/api";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:4000";
 
@@ -87,7 +89,7 @@ const handleSignup = async (e: React.FormEvent) => {
   };
 
   try {
-    const res = await fetch(`${API_URL}/auth/sign-up`, {
+    const res = await fetch(`${AUTH_URL}/sign-up`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
