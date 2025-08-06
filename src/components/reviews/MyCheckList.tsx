@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 
 export interface SharedCheckList {
   checklist_id: number;
@@ -34,38 +35,36 @@ export function MyCheckList() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchShared = async () => {
-      try {
-        setLoading(true);
-        const token = localStorage.getItem('jwt') || '';
-        const res = await axios.get('http://localhost:4000/my/shared-checklists', {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+  const fetchShared = async () => {
+    try {
+      setLoading(true)
+      // 더이상 로컬스토리지에서 토큰을 꺼낼 필요가 없습니다!
+      const res = await axios.get<SharedCheckList[]>(
+          '/shared-checklists',
+          { withCredentials: true }
+        )
 
-        let payload: any = res.data;
+        let payload: any = res.data
+        // 만약 res.data.data 형태라면 아래처럼 처리
         if (!Array.isArray(payload) && Array.isArray(res.data?.data)) {
-          payload = res.data.data;
+          payload = res.data.data
         }
 
-        if (!Array.isArray(payload)) {
-          console.warn('예상한 배열이 아님:', res.data);
-          setData([]);
-        } else {
-          setData(payload);
-        }
+        setData(Array.isArray(payload) ? payload : [])
       } catch (e: any) {
-        console.error(e);
+        console.error(e)
         setError(
-          e.response?.data?.message || '불러오는 중 오류가 발생했습니다.'
-        );
+          e.response?.data?.message ||
+          '불러오는 중 오류가 발생했습니다.'
+        )
       } finally {
-        setLoading(false);
+        setLoading(false)
       }
-    };
-    fetchShared();
-  }, []);
+    }
+    fetchShared()
+  }, [])
 
-  if (loading) {
+    if (loading) {
     return <div className="py-6 text-center text-sm">불러오는 중...</div>;
   }
 
@@ -86,6 +85,8 @@ export function MyCheckList() {
   }
 
   return (
+    
+    
     <div className="overflow-x-auto">
       <table className="w-full table-fixed border-collapse text-left text-[12px]">
         <colgroup>
@@ -134,5 +135,6 @@ export function MyCheckList() {
         </tbody>
       </table>
     </div>
+
   );
 }

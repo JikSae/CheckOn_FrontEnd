@@ -110,6 +110,7 @@ export function mapRecommendationsToData(
           categoryLabel: cat.categoryLabel,
           itemId: found.itemId,
           itemLabel: found.itemLabel,
+
         })
         break
       }

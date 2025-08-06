@@ -1,4 +1,3 @@
-// src/components/makeChecklist/MakeCheckList.tsx
 import React, { useRef, useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import ModifyCheckList, { type Item as ModifyItem } from './ModifyCheckList'
@@ -34,6 +33,7 @@ const ACTIVITY_OPTIONS = ['등산','바다 수영','맛집 탐방','유적지 �
 const COMPANION_OPTIONS = ['유아','미성년자','노인','반려 동물']
 const MINIMAL_ITEMS = ['여권','충전기','선크림']
 
+
 function formatYMD(d: Date) {
   const y = d.getFullYear()
   const m = String(d.getMonth() + 1).padStart(2, '0')
@@ -41,11 +41,12 @@ function formatYMD(d: Date) {
   return `${y}-${m}-${dd}`
 }
 
+
 export default function MakeCheckList() {
-  const navigate = useNavigate()
+   const navigate = useNavigate()
 
   // 1. 챗봇 상태 및 메시지
-  const [step, setStep] = useState<
+   const [step, setStep] = useState<
     | 'city' | 'date' | 'companion' | 'purpose' | 'jp' | 'jp-custom'
     | 'transport' | 'activities' | 'minimal' | 'exchange' | 'items' | 'done'
   >('city')
@@ -63,9 +64,8 @@ export default function MakeCheckList() {
       }
       return [...prev, m]
     })
-
   // 2. 체크리스트 생성 훅
-  const {
+ const {
     cities,
     citiesLoading,
     citiesError,
@@ -74,7 +74,6 @@ export default function MakeCheckList() {
     creating,
     createError,
   } = useChecklistCreator()
-
   // 3. 사용자 선택 값
   const [city, setCity] = useState<{ cityId: number; cityName: string } | null>(null)
   const [departureDate, setDepartureDate] = useState<Date>()
@@ -89,10 +88,12 @@ export default function MakeCheckList() {
   const userTouchedRef = useRef(false)
   const [fallbackAnnounced, setFallbackAnnounced] = useState(false)
 
+
   // 4. 추천된 아이템 상태
   const [selectedItems, setSelectedItems] = useState<RecommendedItem[]>([])
   const [customItem, setCustomItem] = useState('')
   const [customItems, setCustomItems] = useState<string[]>([])
+
 
   // 5. editor 모드 전환용 state
   const [showEditor, setShowEditor] = useState(false)
@@ -103,6 +104,7 @@ export default function MakeCheckList() {
     items: Omit<Item, 'id' | 'checked'>[]
   } | null>(null)
 
+
   // 6. API 추천 훅
   const {
     recommended: apiRecommended,
@@ -112,37 +114,83 @@ export default function MakeCheckList() {
     markUserTouched
   } = useRecommendItems({
     travelStart: departureDate ? formatYMD(departureDate) : '',
-    travelEnd: arrivalDate ? formatYMD(arrivalDate) : '',
-    purpose, transport, activities, minimalPack, exchange, companions, jpType, step,
+    travelEnd:   arrivalDate   ? formatYMD(arrivalDate)   : '',
+    purpose,
+    transport,
+    activities,
+    minimalPack,
+    exchange,
+    companions,
+    jpType,
+    step,
     jwt: localStorage.getItem('jwt') || ''
   })
 
+   // 7. “API → state” 매핑 및 로컬 fallback
+  const fallbackRecs = computeLocalRecommendations({
+    purpose,
+    transport,
+    activities,
+    minimalPack,
+    exchange,
+    companions
+  }).map(text => ({
+    categoryLabel: '기타' as const,
+    itemLabel: text,
+    source: 'fallback' as const
+  }))
+
+
   // 7. API 추천 → selectedItems 세팅
   useEffect(() => {
-    if (apiRecommended.length && !fallbackAnnounced && !userTouchedRef.current) {
-      const mapped = mapRecommendationsToData({ purpose, transport, activities, minimalPack, exchange, companions })
-      setSelectedItems(mapped.map(it => ({ ...it, source: 'api' })))
+    // 사용자 직접 토글 이후에는 자동 업데이트하지 않음
+    if (userTouchedRef.current) return
+
+    // 1) API에서 실제 추천 받았으면 화면에 반영
+    if (apiRecommendedRaw.length > 0) {
+      const mappedApi: RecommendedItem[] = apiRecommendedRaw.flatMap(cat =>
+        cat.items.map(item => ({
+          categoryLabel: cat.categoryLabel,
+          itemLabel:   item.itemLabel,
+          source:      'api' as const
+        }))
+      )
+      setSelectedItems(mappedApi)
+      return
+    }
+
+    // 2) API 비었으면 로컬 fallback 적용 (한 번만)
+    if (!fallbackAnnounced && minimalPack != null && exchange != null) {
+      setSelectedItems(fallbackRecs)
+      setFallbackAnnounced(true)
     }
   }, [
-    apiRecommended, fallbackAnnounced, apiRecommendedRaw,
-    purpose, transport, activities, minimalPack, exchange, companions
+    apiRecommendedRaw,
+    fallbackRecs,
+    fallbackAnnounced,
+    minimalPack,
+    exchange
   ])
 
-  // 8. 로컬 fallback 추천
-  const fallbackRecs = computeLocalRecommendations({ purpose, transport, activities, minimalPack, exchange, companions })
-    .map(text => ({ categoryLabel: '기타', itemLabel: text, source: 'fallback' }))
 
-  // 9. 추천 토글
+   // 8. 추천 토글
   const toggleItem = (it: RecommendedItem) => {
     markUserTouched()
     userTouchedRef.current = true
     setFallbackAnnounced(false)
     setSelectedItems(prev => {
-      const exists = prev.some(x => x.itemLabel === it.itemLabel && x.categoryLabel === it.categoryLabel)
-      if (exists) return prev.filter(x => !(x.itemLabel === it.itemLabel && x.categoryLabel === it.categoryLabel))
+      const exists = prev.some(x =>
+        x.itemLabel === it.itemLabel && x.categoryLabel === it.categoryLabel
+      )
+      if (exists) {
+        return prev.filter(x =>
+          !(x.itemLabel === it.itemLabel && x.categoryLabel === it.categoryLabel)
+        )
+      }
       return [...prev, it]
     })
   }
+
 
   // 10. 스텝 핸들러들 (생략 없이 동일하게)
   const handleSelectCity = (c: { cityId: number; cityName: string }) => {
@@ -217,7 +265,8 @@ export default function MakeCheckList() {
   const toggleCompanion = (c: string) => setCompanions(p => p.includes(c) ? p.filter(x => x !== c) : [...p, c])
   const toggleActivity = (a: string) => setActivities(p => p.includes(a) ? p.filter(x => x !== a) : [...p, a])
 
-  // 11. 최종 finishItems → editorData 생성
+
+// 11. 최종 finishItems → editorData 생성
   const finishItems = () => {
     const final = selectedItems.length > 0
       ? selectedItems
@@ -237,6 +286,7 @@ export default function MakeCheckList() {
   }
   const goToEditor = () => finishItems()
 
+  
   // 12. ***handleSave*** (여기에 넣었습니다)
   const handleSave = useCallback(
     async (data: {
@@ -253,7 +303,6 @@ export default function MakeCheckList() {
         alert('준비물이 로딩 중입니다.')
         return
       }
-
       // 1) selectedItems → API 스펙 items 배열 생성
       const payloadItems = selectedItems.map(sel => {
         for (const cat of LOCAL_CATEGORIES) {
@@ -267,7 +316,6 @@ export default function MakeCheckList() {
         }
         return { itemId: null, packingBag: 'HAND' as const }
       })
-
       // 2) 전체 페이로드
       const payload = {
         userId: 1,
@@ -278,10 +326,8 @@ export default function MakeCheckList() {
         travelEnd: `${data.endDate}T00:00:00.000Z`,
         items: payloadItems,
       }
-
-    console.log('▶️ payloadItems:', payloadItems)
-    console.log('▶️ payload 전체:', payload)
-
+    console.log(':앞쪽_화살표: payloadItems:', payloadItems)
+    console.log(':앞쪽_화살표: payload 전체:', payload)
       try {
         await fetch('http://localhost:4000/my/checklists', {
           method: 'POST',
@@ -299,7 +345,6 @@ export default function MakeCheckList() {
     },
     [city, catalogLoading, selectedItems, navigate]
   )
-
   // 13. editor 모드 렌더링
   if (showEditor && editorData) {
     const cats: ApiCategory[] = apiRecommendedRaw.length > 0
@@ -308,7 +353,6 @@ export default function MakeCheckList() {
           items: c.items.map(i => ({ itemLabel: i.itemLabel }))
         }))
       : LOCAL_CATEGORIES
-
     return (
       <ModifyCheckList
         initialTitle={editorData.title}
@@ -320,28 +364,24 @@ export default function MakeCheckList() {
       />
     )
   }
-
   const isFinishDisabled = Boolean(
     creating ||
     recommendLoading ||
     catalogLoading ||
     (recommendError && apiRecommended.length === 0 && selectedItems.length === 0)
   )
-
   // ItemsStep에 넘길 SelectedItem[]
   const itemsForStep: SelectedItem[] = selectedItems.map(x => ({
     text: x.itemLabel,
     category: x.categoryLabel,
     source: x.source
   }))
-
   // 14. 일반 모드 UI 반환
   return (
     <div className="max-w-4xl mx-auto my-8">
       <h3 className="text-3xl font-bold text-center mb-6">체크리스트 만들기</h3>
       <div className="bg-white p-6 rounded-xl shadow-lg">
         <Stepper current={step} />
-
         {/* 메시지 로그 */}
         <div className="space-y-4 mb-6">
           {messages.map((m, i) => (
@@ -361,7 +401,6 @@ export default function MakeCheckList() {
             </div>
           ))}
         </div>
-
         {/* 스텝별 UI */}
         {step === 'city' && (
           <CityStep
@@ -469,7 +508,6 @@ export default function MakeCheckList() {
             minimalPack={!!minimalPack}
           />
         )}
-
         {createError && (
           <div className="text-red-500 mt-4">{createError.message}</div>
         )}

@@ -26,8 +26,8 @@ export default function TopReviews() {
     setLoading(true);
     setError(null);
     try {
-      const token = localStorage.getItem('jwt') || '';
-      const res = await axios.get('http://localhost:4000/items-reviews', {
+      const token = localStorage.getItem('token') || '';
+      const res = await axios.get('http://localhost:4000/item-reviews', {
         headers: {
           Authorization: `Bearer ${token}`,
         },

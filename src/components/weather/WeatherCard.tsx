@@ -68,6 +68,7 @@ const WeatherCard: React.FC = () => {
               start_date: today,
               end_date: end,
             },
+             withCredentials: false
           }
         );
         setData(res.data);
