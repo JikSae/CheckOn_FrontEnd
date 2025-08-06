@@ -3,7 +3,6 @@ import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { AUTH_URL } from "../utils/api";
 
-<<<<<<< HEAD
 interface LoginForm {
   email: string;
   password: string;
@@ -13,12 +12,6 @@ export default function Login() {
   const navigate = useNavigate();
   const [form, setForm] = useState<LoginForm>({ email: "", password: "" });
   const [error, setError] = useState<string>("");
-=======
-export default function Login() {
-  const navigate = useNavigate();
-  const [form, setForm] = useState({ email: "", password: "" });
-  const [error, setError] = useState("");
->>>>>>> 67252aabed7bb8f05f7bc637c313394b29d56260
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { id, value } = e.target;
@@ -38,7 +31,6 @@ export default function Login() {
         method: "POST",
         credentials: "include", 
         headers: { "Content-Type": "application/json" },
-<<<<<<< HEAD
         credentials: "include",  // 쿠키 전달/수신을 위해 include 설정
         body: JSON.stringify(form),
       });
@@ -49,18 +41,6 @@ export default function Login() {
         navigate("/mypage");
       } else {
         setError(result.message || "로그인에 실패했습니다.");
-=======
-        body: JSON.stringify({
-            email: form.email,       // 문자열만
-            password: form.password, // 문자열만
-            }),
-        });
-
-      const result = await res.json();
-      if (!res.ok) {
-        setError(result.message || "로그인에 실패했습니다.");
-        return;
->>>>>>> 67252aabed7bb8f05f7bc637c313394b29d56260
       }
 
       // 서버가 HttpOnly 쿠키로 token 내려준다면 이 한 줄로 충분합니다.
@@ -71,22 +51,12 @@ export default function Login() {
     }
   };
 
-<<<<<<< HEAD
-=======
-
->>>>>>> 67252aabed7bb8f05f7bc637c313394b29d56260
   return (
     <div className="min-h-screen flex flex-col bg-[#FEFEFE] text-gray-800">
       <div className="h-20 w-full" />
       <main className="flex-1 flex justify-center pt-12">
         <div className="w-full max-w-md px-4">
-<<<<<<< HEAD
           <h1 className="text-4xl font-bold text-center text-red-500 mb-12">Check .On</h1>
-=======
-          <h1 className="text-4xl font-bold text-center text-red-500 mb-12">
-            Check .On
-          </h1>
->>>>>>> 67252aabed7bb8f05f7bc637c313394b29d56260
           <form onSubmit={handleLogin} className="space-y-6">
             <div>
               <label htmlFor="email" className="block mb-2 font-semibold">
