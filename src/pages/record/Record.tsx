@@ -1,5 +1,6 @@
 // src/pages/Record.tsx
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 
 interface Post {
   id: number;
@@ -10,19 +11,49 @@ interface Post {
   likes: number;
 }
 
-// 더미 데이터
-const dummyPosts: Post[] = [
-  { id: 101, category: "전자기기", title: "샘플 찜 리뷰 1", author: "userA", createdAt: "2025.08.01", likes: 42 },
-  { id: 102, category: "의류",     title: "샘플 찜 리뷰 2", author: "userB", createdAt: "2025.07.28", likes: 17 },
-  { id: 103, category: "화장품",   title: "샘플 찜 리뷰 3", author: "userC", createdAt: "2025.07.25", likes:  8 },
-];
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:4000";
 
 export default function Record() {
-  const [posts, setPosts] = useState<Post[]>(dummyPosts);
+  const navigate = useNavigate();
+  const [posts, setPosts] = useState<Post[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const postsPerPage = 8;
+
+  // 1) 찜한 리뷰 목록 불러오기
+  useEffect(() => {
+    const fetchFavorites = async () => {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        alert("로그인이 필요합니다.");
+        return navigate("/login");
+      }
+      try {
+        const res = await fetch(`${API_URL}/favorites/favorite-reviews`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) throw new Error("찜 목록 조회 실패");
+        const body = await res.json();
+        // 실제 데이터 shape에 맞게 조정하세요
+        // 여기서는 body.data로 배열이 온다고 가정합니다.
+        setPosts(
+          (body.data as any[]).map((r) => ({
+            id: r.reviewId,
+            category: r.categoryLabel,
+            title: r.itemLabel,
+            author: r.userNickname,
+            createdAt: new Date(r.createdAt).toLocaleDateString(),
+            likes: r.likesCount,
+          }))
+        );
+      } catch (err: any) {
+        console.error(err);
+        alert(err.message);
+      }
+    };
+    fetchFavorites();
+  }, [navigate]);
 
   const totalPages = Math.ceil(posts.length / postsPerPage);
   const currentPosts = posts.slice(
@@ -30,11 +61,32 @@ export default function Record() {
     currentPage * postsPerPage
   );
 
-  const handleDelete = () => {
-    // 실제 삭제는 API 호출로 대체
-    setPosts((prev) => prev.filter((p) => !selectedIds.includes(p.id)));
-    setSelectedIds([]);
-    setSelectMode(false);
+  // 2) 선택 삭제
+  const handleDelete = async () => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      alert("로그인이 필요합니다.");
+      return navigate("/login");
+    }
+    try {
+      await Promise.all(
+        selectedIds.map((id) =>
+          fetch(`${API_URL}/favorites/item-reviews/${id}`, {
+            method: "DELETE",
+            headers: { Authorization: `Bearer ${token}` },
+          }).then((res) => {
+            if (!res.ok) throw new Error("삭제 실패");
+          })
+        )
+      );
+      // 로컬 상태에서도 제거
+      setPosts((prev) => prev.filter((p) => !selectedIds.includes(p.id)));
+      setSelectedIds([]);
+      setSelectMode(false);
+    } catch (err: any) {
+      console.error(err);
+      alert(err.message);
+    }
   };
 
   const toggleSelect = (id: number) => {
@@ -48,7 +100,6 @@ export default function Record() {
       <main className="px-4 py-10 max-w-[1000px] mx-auto">
         <h1 className="text-4xl font-bold text-center mb-6">내가 찜한 목록</h1>
 
-        {/* — 삭제/선택 모드 토글 버튼 */}
         <div className="mb-4">
           <button
             onClick={() => {
@@ -102,17 +153,21 @@ export default function Record() {
               </tr>
             ))}
             {currentPosts.length < postsPerPage &&
-              Array.from({ length: postsPerPage - currentPosts.length }).map((_, i) => (
-                <tr key={`empty-${i}`} className="h-10">
-                  <td colSpan={6}>&nbsp;</td>
-                </tr>
-              ))}
+              Array.from({ length: postsPerPage - currentPosts.length }).map(
+                (_, i) => (
+                  <tr key={`empty-${i}`} className="h-10">
+                    <td colSpan={6}>&nbsp;</td>
+                  </tr>
+                )
+              )}
           </tbody>
         </table>
 
-        {/* 페이지네이션 */}
         <div className="flex justify-center mt-6 gap-2 text-sm">
-          <button onClick={() => setCurrentPage(1)} disabled={currentPage === 1}>
+          <button
+            onClick={() => setCurrentPage(1)}
+            disabled={currentPage === 1}
+          >
             {"<<"}
           </button>
           <button
@@ -133,7 +188,9 @@ export default function Record() {
             </button>
           ))}
           <button
-            onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
+            onClick={() =>
+              setCurrentPage((p) => Math.min(p + 1, totalPages))
+            }
             disabled={currentPage === totalPages}
           >
             {">"}

@@ -1,217 +1,199 @@
-// ProFIleEdit.tsx
+// src/pages/ProfileEdit.tsx
 import React, { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:4000";
+
 export default function ProfileEdit() {
   const navigate = useNavigate();
-  const [form, setForm] = useState({
-    nickname: "test123",
-    password: "",
-    confirmPassword: "",
-    profileImage: "https://cdn-icons-png.flaticon.com/512/847/847969.png",
-  });
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // 페이지 로드 시 백엔드에서 내 정보 조회 , 데이터 없어서 오류 뜨는 거
+  const [nickname, setNickname] = useState("");
+  const [profileImage, setProfileImage] = useState(
+    "https://cdn-icons-png.flaticon.com/512/847/847969.png"
+  );
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+
+  // — 내 정보 조회
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (!token) {
       alert("로그인이 필요합니다.");
-      return navigate("/login");
+      navigate("/login");
+      return;
     }
-    fetch("http://localhost:3000/users/me", {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then(res => {
+
+    (async () => {
+      try {
+        const res = await fetch(`${API_URL}/my`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
         if (!res.ok) throw new Error("내 정보 조회 실패");
-        return res.json();
-      })
-      .then(data => {
-        setForm(prev => ({
-          ...prev,
-          nickname: data.nickname,
-          profileImage: data.profileImage || prev.profileImage,
-        }));
-      })
-      .catch(err => {
+        const body = await res.json();
+        // body.data.publicUserInfo 혹은 body.data 형태
+        const user = body.data?.publicUserInfo ?? body.data ?? body;
+        setNickname(user.nickname ?? "");
+        if (user.profilePhoto) {
+          setProfileImage(user.profilePhoto);
+        }
+      } catch (err) {
         console.error(err);
         alert("내 정보를 불러올 수 없습니다.");
-      });
+        navigate("/");
+      }
+    })();
   }, [navigate]);
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setForm((prev) => ({ ...prev, profileImage: reader.result as string }));
-      };
-      reader.readAsDataURL(file);
-    }
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onloadend = () => setProfileImage(reader.result as string);
+    reader.readAsDataURL(file);
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
-  };
-
-  const handleReset = () => {
-    setForm({
-      nickname: "test123",
-      password: "",
-      confirmPassword: "",
-      profileImage: "https://cdn-icons-png.flaticon.com/512/847/847969.png",
-    });
-  };
-
-  // 백엔드에 변경된 회원정보 전송
+  // — 프로필 수정
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    // 비밀번호 일치 검증
-    if (form.password && form.password !== form.confirmPassword) {
-      alert("비밀번호가 일치하지 않습니다.");
-      return;
-    }
-
     const token = localStorage.getItem("token");
     if (!token) {
       alert("로그인이 필요합니다.");
       return navigate("/login");
     }
+    if (password && password !== confirmPassword) {
+      alert("비밀번호가 일치하지 않습니다.");
+      return;
+    }
 
     try {
-      const res = await fetch("http://localhost:3000/users/me", {
-        method: "PUT",
+      const res = await fetch(`${API_URL}/my`, {
+        method: "PATCH",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          nickname: form.nickname,
-          password: form.password || undefined,
-          profileImage: form.profileImage,
+          nickname,
+          password: password || undefined,
+          profilePhoto: profileImage,
         }),
       });
-      const data = await res.json();
-      if (res.ok) {
-        alert("프로필이 성공적으로 수정되었습니다.");
-      } else {
-        alert(data.message || "프로필 수정에 실패했습니다.");
+      if (!res.ok) {
+        const txt = await res.text();
+        console.error("프로필 수정 실패:", txt);
+        throw new Error("프로필 수정에 실패했습니다.");
       }
-    } catch (err) {
-      console.error(err);
-      alert("서버 연결에 실패했습니다.");
+      alert("프로필이 성공적으로 수정되었습니다.");
+      navigate("/mypage");
+    } catch (err: any) {
+      alert(err.message);
     }
   };
 
   return (
-    <div className="w-screen h-screen bg-[#E7E6E6] text-[#1F2937] font-sans flex flex-col">
-      {/* TODO: 헤더 영역 삽입 위치 */}
-
-      <div className="flex flex-col items-center justify-center flex-1 px-4">
-        <h1 className="text-4xl font-bold mb-10">프로필 수정</h1>
-        <form
-          onSubmit={handleSubmit}
-          className="bg-[#FEFEFE] text-black w-full max-w-3xl p-10 rounded-xl shadow-2xl text-lg"
-        >
-          <div className="grid grid-cols-4 gap-y-8 items-center">
-            <div className="font-semibold col-span-1 text-right pr-4">프로필 사진</div>
-            <div className="col-span-3 flex flex-col items-start gap-3">
-              <img
-                src={form.profileImage}
-                alt="profile"
-                className="w-24 h-24 rounded-full object-cover border border-gray-400"
-              />
-              <div className="flex gap-5">
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="px-4 py-1 rounded bg-gray-300 text-sm"
-                >
-                  사진 변경
-                </button>
-                <button
-                  type="button"
-                  onClick={handleReset}
-                  className="px-4 py-1 rounded bg-gray-300 text-sm"
-                >
-                  기본 이미지
-                </button>
-              </div>
-              <input
-                type="file"
-                accept="image/*"
-                ref={fileInputRef}
-                onChange={handleImageChange}
-                className="hidden"
-              />
-            </div>
-
-            <div className="font-semibold col-span-1 text-right pr-4">닉네임</div>
-            <div className="col-span-3">
-              <input
-                type="text"
-                name="nickname"
-                value={form.nickname}
-                onChange={handleChange}
-                className="w-full px-4 py-2 rounded bg-white border border-gray-300"
-              />
-            </div>
-
-            <div className="font-semibold col-span-1 text-right pr-4">비밀번호 변경</div>
-            <div className="col-span-3">
-              <input
-                type="password"
-                name="password"
-                value={form.password}
-                onChange={handleChange}
-                placeholder="6~13자리"
-                className="w-full px-4 py-2 rounded bg-white border border-gray-300"
-                minLength={6}
-                maxLength={13}
-              />
-              {form.confirmPassword &&
-                form.password !== form.confirmPassword && (
-                  <div className="text-[#F59E0B] text-sm mt-1">비밀번호는 6자 이상 13자 이하로 입력해주세요.</div>
-                )}
-            </div>
-
-            <div className="font-semibold col-span-1 text-right pr-4">비밀번호 확인</div>
-            <div className="col-span-3">
-              <input
-                type="password"
-                name="confirmPassword"
-                value={form.confirmPassword}
-                onChange={handleChange}
-                className="w-full px-4 py-2 rounded bg-white border border-gray-300"
-              />
-              {form.confirmPassword &&
-                form.password !== form.confirmPassword && (
-                  <p className="text-[#F59E0B] text-sm mt-1">
+    <div className="min-h-screen flex items-center justify-center bg-gray-100 p-6">
+      <form onSubmit={handleSubmit} className="w-full max-w-3xl">
+        <table className="w-full table-fixed border-collapse border border-gray-300 bg-white">
+          <tbody>
+            <tr>
+              <th className="w-1/4 bg-gray-200 text-left p-4 border-r">프로필 사진</th>
+              <td className="p-4 border">
+                <div className="flex items-center gap-4">
+                  <img
+                    src={profileImage}
+                    alt="profile"
+                    className="w-20 h-20 rounded-full object-cover border"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="px-3 py-1 bg-white border rounded"
+                  >
+                    사진 변경
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setProfileImage(
+                        "https://cdn-icons-png.flaticon.com/512/847/847969.png"
+                      )
+                    }
+                    className="px-3 py-1 bg-white border rounded"
+                  >
+                    기본 이미지
+                  </button>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    ref={fileInputRef}
+                    onChange={handleImageChange}
+                    className="hidden"
+                  />
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <th className="bg-gray-200 text-left p-4 border-t border-r">닉네임</th>
+              <td className="p-4 border-t">
+                <input
+                  type="text"
+                  value={nickname}
+                  onChange={(e) => setNickname(e.target.value)}
+                  className="w-full border px-3 py-2 rounded bg-gray-50"
+                />
+              </td>
+            </tr>
+            <tr>
+              <th className="bg-gray-200 text-left p-4 border-t border-r">비밀번호 변경</th>
+              <td className="p-4 border-t">
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="6~13자리"
+                  className="w-full border px-3 py-2 rounded bg-gray-50"
+                  minLength={6}
+                  maxLength={13}
+                />
+              </td>
+            </tr>
+            <tr>
+              <th className="bg-gray-200 text-left p-4 border-t border-r">비밀번호 확인</th>
+              <td className="p-4 border-t">
+                <input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="w-full border px-3 py-2 rounded bg-gray-50"
+                />
+                {confirmPassword && password !== confirmPassword && (
+                  <p className="text-sm text-yellow-600 mt-2">
                     비밀번호가 일치하지 않습니다.
                   </p>
                 )}
-            </div>
-          </div>
-
-          <div className="flex justify-center gap-6 mt-12">
-            <button
-              type="submit"
-              className="bg-[#3B82F6] text-white px-10 py-2 rounded-lg text-lg hover:bg-blue-700"
-            >
-              적용
-            </button>
-            <button
-              type="button"
-              onClick={handleReset}
-              className="bg-gray-300 text-black px-10 py-2 rounded-lg text-lg hover:bg-gray-300"
-            >
-              취소
-            </button>
-          </div>
-        </form>
-      </div>
+              </td>
+            </tr>
+            <tr>
+              <td colSpan={2} className="text-center p-6 bg-gray-200 border-t">
+                <button
+                  type="submit"
+                  className="px-6 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 mr-4"
+                >
+                  적용
+                </button>
+                <button
+                  type="button"
+                  onClick={() => navigate(-1)}
+                  className="px-6 py-2 bg-gray-300 text-gray-800 rounded hover:bg-gray-400"
+                >
+                  취소
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </form>
     </div>
   );
 }

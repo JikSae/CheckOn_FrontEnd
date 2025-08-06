@@ -1,6 +1,6 @@
-// Review.tsx
+// src/pages/Review.tsx
 import React, { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:4000";
 
@@ -14,6 +14,7 @@ interface ReviewSummary {
 }
 
 export default function Review() {
+  const navigate = useNavigate();
   const [posts, setPosts] = useState<ReviewSummary[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -27,11 +28,20 @@ export default function Review() {
 
   useEffect(() => {
     const fetchReviews = async () => {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        alert("로그인이 필요합니다.");
+        return navigate("/login");
+      }
       try {
-        const res = await fetch(`${API_URL}/my/items-reviews`);
+        const res = await fetch(`${API_URL}/my/items-reviews`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.status === 401) {
+          alert("인증이 만료되었습니다.");
+          return navigate("/login");
+        }
         const data = await res.json();
-  
-        // 배열이 아닌 객체 형태로 들어오는 경우 처리
         if (Array.isArray(data.reviews)) {
           setPosts(data.reviews);
         } else {
@@ -44,14 +54,11 @@ export default function Review() {
       }
     };
     fetchReviews();
-  }, []);
-  
+  }, [navigate]);
 
-  const filtered = Array.isArray(posts)
-    ? selectedCategory
-      ? posts.filter((post) => post.category === selectedCategory)
-      : posts
-    : [];
+  const filtered = selectedCategory
+    ? posts.filter(p => p.category === selectedCategory)
+    : posts;
 
   const sorted = [...filtered].sort((a, b) => {
     if (sortType === "likes") return b.likes - a.likes;
@@ -70,31 +77,31 @@ export default function Review() {
         <div className="w-full max-w-[1320px] mx-auto">
           <h1 className="text-4xl font-bold text-center mb-6">준비물 후기 공유</h1>
 
+          {/* 필터/정렬 */}
           <div className="flex justify-between items-center mb-4">
             <div className="flex items-center gap-2">
               <label className="text-base font-medium">카테고리:</label>
               <select
                 value={selectedCategory ?? ""}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  setSelectedCategory(val === "" ? null : val);
+                onChange={e => {
+                  const v = e.target.value;
+                  setSelectedCategory(v === "" ? null : v);
                   setCurrentPage(1);
                 }}
-                className="border border-gray-400 rounded px-3 py-1 text-sm"
+                className="border rounded px-3 py-1 text-sm"
               >
                 <option value="">전체</option>
-                {categories.map((c) => (
+                {categories.map(c => (
                   <option key={c} value={c}>{c}</option>
                 ))}
               </select>
             </div>
-
             <div className="flex items-center gap-2">
               <label className="text-base font-medium">정렬:</label>
               <select
                 value={sortType}
-                onChange={(e) => setSortType(e.target.value as 'likes' | 'latest')}
-                className="border border-gray-400 rounded px-3 py-1 text-sm"
+                onChange={e => setSortType(e.target.value as any)}
+                className="border rounded px-3 py-1 text-sm"
               >
                 <option value="likes">추천순</option>
                 <option value="latest">최신순</option>
@@ -102,6 +109,7 @@ export default function Review() {
             </div>
           </div>
 
+          {/* 테이블 */}
           <table className="w-full text-sm border-t border-b border-gray-400">
             <thead>
               <tr className="border-b border-gray-300 text-center">
@@ -115,11 +123,19 @@ export default function Review() {
             </thead>
             <tbody>
               {currentPosts.map((post, idx) => (
-                <tr key={`post-${post.review_id}`} className="border-t border-gray-200 hover:bg-gray-50 text-center">
-                  <td className="py-3">{(currentPage - 1) * postsPerPage + idx + 1}</td>
+                <tr
+                  key={post.review_id}
+                  className="border-t border-gray-200 hover:bg-gray-50 text-center"
+                >
+                  <td className="py-3">
+                    {(currentPage - 1) * postsPerPage + idx + 1}
+                  </td>
                   <td>{post.category}</td>
                   <td>
-                    <Link to={`/review/${post.review_id}`} className="text-blue-600 hover:underline block text-center">
+                    <Link
+                      to={`/review/${post.review_id}`}
+                      className="text-blue-600 hover:underline"
+                    >
                       {post.title}
                     </Link>
                   </td>
@@ -128,17 +144,17 @@ export default function Review() {
                   <td className="text-right pr-4">{post.likes}</td>
                 </tr>
               ))}
-
-              {/* 빈 행 처리 */}
-              {Array.from({ length: postsPerPage - currentPosts.length }).map((_, i) => (
-                <tr key={`empty-row-${i}`} className="h-12">
-                  <td colSpan={6}>&nbsp;</td>
-                </tr>
-              ))}
+              {currentPosts.length < postsPerPage &&
+                Array(postsPerPage - currentPosts.length).fill(0).map((_, i) => (
+                  <tr key={i} className="h-12">
+                    <td colSpan={6}>&nbsp;</td>
+                  </tr>
+                ))
+              }
             </tbody>
-
           </table>
 
+          {/* 페이지네이션 */}
           <div className="flex justify-center mt-10 gap-2 text-sm">
             <button onClick={() => setCurrentPage(1)} disabled={currentPage === 1}>{'<<'}</button>
             <button onClick={() => setCurrentPage(p => Math.max(p - 1, 1))} disabled={currentPage === 1}>{'<'}</button>
@@ -146,9 +162,9 @@ export default function Review() {
               <button
                 key={i}
                 onClick={() => setCurrentPage(i + 1)}
-                className={`px-3 py-1 rounded ${currentPage === i + 1 ? 'font-bold underline' : ''}`}
+                className={`px-3 py-1 rounded ${currentPage === i+1 ? 'font-bold underline' : ''}`}
               >
-                {i + 1}
+                {i+1}
               </button>
             ))}
             <button onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))} disabled={currentPage === totalPages}>{'>'}</button>
@@ -157,5 +173,5 @@ export default function Review() {
         </div>
       </main>
     </div>
-  );
+);
 }

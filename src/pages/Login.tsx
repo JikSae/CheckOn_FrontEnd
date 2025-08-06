@@ -1,53 +1,58 @@
+/* src/pages/Login.tsx */
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { AUTH_URL } from "../utils/api";
-// Vite 환경변수로 API 주소 관리
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:4000";
+
+interface LoginForm {
+  email: string;
+  password: string;
+}
+
 export default function Login() {
   const navigate = useNavigate();
-  const [form, setForm] = useState({ email: "", password: "" });
-  const [error, setError] = useState("");
+  const [form, setForm] = useState<LoginForm>({ email: "", password: "" });
+  const [error, setError] = useState<string>("");
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { id, value } = e.target;
-    setForm((prev) => ({ ...prev, [id]: value }));
+    setForm(prev => ({ ...prev, [id]: value }));
     setError("");
   };
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.email || !form.password) {
       setError("이메일과 비밀번호를 모두 입력해주세요.");
       return;
     }
+
     try {
       const res = await fetch(`${AUTH_URL}/sign-in`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",  // 쿠키 전달/수신을 위해 include 설정
         body: JSON.stringify(form),
       });
-      const data = await res.json();
+
+      const result = await res.json();
       if (res.ok) {
-        localStorage.setItem("token", data.token);
-        localStorage.setItem("nickname", data.nickname || "");
-        navigate("/");
+        // 쿠키로 세션/토큰이 설정되어 있으므로 별도 저장 불필요
+        navigate("/mypage");
       } else {
-        setError(data.message || "로그인에 실패했습니다.");
+        setError(result.message || "로그인에 실패했습니다.");
       }
     } catch (err) {
       console.error("Login error:", err);
       setError("서버 연결에 실패했습니다.");
     }
   };
+
   return (
     <div className="min-h-screen flex flex-col bg-[#FEFEFE] text-gray-800">
-      {/* 상단 여백 */}
       <div className="h-20 w-full" />
       <main className="flex-1 flex justify-center pt-12">
         <div className="w-full max-w-md px-4">
-          {/* 로고/타이틀 */}
-          <h1 className="text-4xl font-bold text-center text-red-500 mb-12">
-            Check .On
-          </h1>
-          {/* 폼 */}
+          <h1 className="text-4xl font-bold text-center text-red-500 mb-12">Check .On</h1>
           <form onSubmit={handleLogin} className="space-y-6">
             <div>
               <label htmlFor="email" className="block mb-2 font-semibold">
@@ -84,19 +89,12 @@ export default function Login() {
               로그인
             </button>
           </form>
-          {/* 하단 링크들 */}
           <div className="flex justify-center gap-4 text-sm text-gray-700 mt-8">
-            <Link to="/signup" className="hover:underline">
-              회원가입
-            </Link>
+            <Link to="/signup" className="hover:underline">회원가입</Link>
             <span>|</span>
-            <Link to="/account-recovery?type=find-id" className="hover:underline">
-              아이디 찾기
-            </Link>
+            <Link to="/account-recovery?type=find-id" className="hover:underline">아이디 찾기</Link>
             <span>|</span>
-            <Link to="/account-recovery?type=reset-password" className="hover:underline">
-              비밀번호 변경
-            </Link>
+            <Link to="/account-recovery?type=reset-password" className="hover:underline">비밀번호 변경</Link>
           </div>
         </div>
       </main>
